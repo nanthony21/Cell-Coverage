@@ -9,6 +9,27 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy import ndimage
 
+#remove components smaller than min_size
+def remove_component(img, min_size):
+    #find all your connected components
+    nb_components, output, stats, centroids = cv.connectedComponentsWithStats(img.astype(np.uint8), connectivity=8)
+    
+    #connectedComponentswithStats yields every seperated component with information on each of them, such as size
+    #the following part is just taking out the background which is also considered a component, but most of the time we don't want that.
+    sizes = stats[1:, -1]
+    nb_components = nb_components - 1
+
+    #output_img
+    img2 = np.zeros((output.shape))
+    
+    #for every component in the image, you keep it only if it's above min_size
+    for i in range(0, nb_components):
+        if sizes[i] >= min_size:
+            img2[output == i + 1] = img.max()
+            
+    return img2.astype(img.dtype)
+     
+# Create Mask for finding pixels in local neighborhood       
 def dist_mask(dist):
     output_mask = np.ones([dist*2 + 1, dist*2 + 1], dtype=np.uint16)
     output_mask[dist, dist] = 0
@@ -83,34 +104,41 @@ file = 'H:\\Cell Coverage\\cellCvgSc\\corrT_0\\corrT_1_MMStack_4-Pos_006_015.ome
 
 img = cv.imread(file, -1)
 
-#flat_img = img.flatten()
 #n, hist_bins, patches = plt.hist(var_img2_m.flatten(),
 #                                 range(var_img2_m.min(), var_img2_m.max()),
 #                                 density=True)
 #
-#n, hist_bins, patches = plt.hist(var_img2_m.flatten())
+#n, hist_bins, patches = plt.hist(blur_var1.flatten(), bins=400)
 
-# Calculate Binary mask otsu
-#ret,thresh1 = cv.threshold(img, otsu_1d(img), 65535, cv.THRESH_BINARY)
+# Gaussian Filter to remove noise
+img_blur = cv.GaussianBlur(img,(5,5),0)
 
 # calculate Variance Map
-var_img1_m = var_map(img, 1)
-var_img2_m = var_map(img, 2)
-var_img4 = var_map(img, 4)
-var_img8 = var_map(img, 8)
+var_img = var_map(img_blur, 1)
 
+# Use Otsu to calculate binary threshold and binarize
+bin_var_img = cv.threshold(var_img, otsu_1d(var_img), 65535, cv.THRESH_BINARY)[1]
 
-#ret,thresh1 = cv.threshold(img, otsu_1d(var_img1), 65535, cv.THRESH_BINARY)
-#ret,thresh2 = cv.threshold(img, otsu_1d(var_img2), 65535, cv.THRESH_BINARY)
-#ret,thresh4 = cv.threshold(img, otsu_1d(var_img4), 65535, cv.THRESH_BINARY)
-#ret,thresh8 = cv.threshold(img, otsu_1d(var_img8), 65535, cv.THRESH_BINARY)
+# flip background and foreground
+bin_var_img[bin_var_img == 0] = 1
+bin_var_img[bin_var_img == 65535] = 0
+
+# Set kernels for morphological operations and CC
+kernel_er = np.ones((2,2),np.uint8)
+kernel_dil = np.ones((4,4),np.uint8)
+min_size = 50
+
+# Erode->Remove small features->dilate
+morph_img = cv.erode(bin_var_img, kernel_er)
+morph_img = remove_component(morph_img, min_size)
+morph_img = cv.dilate(morph_img, kernel_dil)
 
 # display images
-#plt.subplot(2, 2, 1)
-#plt.imshow(img[500:700, 100:300], cmap='gray')
-#plt.subplot(2, 2, 2)
-#plt.imshow(thresh2[500:700, 100:300], cmap='gray')
-#plt.subplot(2, 2, 3)
-#plt.imshow(thresh4[500:700, 100:300], cmap='gray')
-#plt.subplot(2, 2, 4)
-#plt.imshow(thresh8[500:700, 100:300], cmap='gray')
+r = [0, 256, 512, 768, 1024]
+for x_r in range(4):
+    for y_r in range(4):
+        plt.figure()
+        plt.subplot(1, 2, 1)
+        plt.imshow(img[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap='gray')
+        plt.subplot(1, 2, 2)
+        plt.imshow(morph_img[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap='gray')
