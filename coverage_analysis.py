@@ -7,6 +7,7 @@ Created on Thu Sep 20 11:42:05 2018
 import cv2 as cv
 import numpy as np
 from matplotlib import pyplot as plt
+import matplotlib.cm as cm
 from scipy import ndimage
 
 #remove components smaller than min_size
@@ -25,15 +26,20 @@ def remove_component(img, min_size):
     #for every component in the image, you keep it only if it's above min_size
     for i in range(0, nb_components):
         if sizes[i] >= min_size:
-            img2[output == i + 1] = img.max()
+            img2[output == i + 1] = 1
             
     return img2.astype(img.dtype)
      
 # Create Mask for finding pixels in local neighborhood       
 def dist_mask(dist):
+    # Initialize output make
     output_mask = np.ones([dist*2 + 1, dist*2 + 1], dtype=np.uint16)
+    
+    #Create distance map
     output_mask[dist, dist] = 0
     dist_map = ndimage.distance_transform_edt(output_mask)
+    
+    # Turn distance map into binary mask
     output_mask[dist_map>dist] = 0
     output_mask[dist_map<=dist] = 1
     return output_mask
@@ -65,12 +71,6 @@ def var_map(img, dist):
             local_img = img[x1:x2, y1:y2]
             local_mask = mask[-x1_off : mask_size + x2_off, -y1_off : mask_size + y2_off]            
             output_map[ind_x, ind_y] = (local_img[local_mask.astype(bool)]).var()
-
-#            fig, ax = plt.subplots()
-#            plt.subplot(1, 2, 1)
-#            plt.imshow(test1, cmap='gray')
-#            plt.subplot(1, 2, 2)
-#            plt.imshow(test2, cmap='gray')
 #
 #            while plt.fignum_exists(fig.number):
 #                fig.canvas.flush_events()
@@ -99,46 +99,76 @@ def otsu_1d(img):
         [var_b_max, bin_index] = [var_b, bin_val] if var_b > var_b_max else [var_b_max, bin_index]
     return bin_index
 
-# Main Code
-file = 'H:\\Cell Coverage\\cellCvgSc\\corrT_0\\corrT_1_MMStack_4-Pos_006_015.ome.tif'
 
-img = cv.imread(file, -1)
+# Segment out cells from background
+def analyze_img(img, *mask):
+    if len(mask) == 0:
+        mask = np.ones(img.shape).astype(np.uint16)
+    else:
+        mask = mask[0]
 
-#n, hist_bins, patches = plt.hist(var_img2_m.flatten(),
-#                                 range(var_img2_m.min(), var_img2_m.max()),
-#                                 density=True)
-#
-#n, hist_bins, patches = plt.hist(blur_var1.flatten(), bins=400)
+    # calculate Variance Map
+    var_img = var_map(img, 1)
 
-# Gaussian Filter to remove noise
-img_blur = cv.GaussianBlur(img,(5,5),0)
+    # Use Otsu to calculate binary threshold and binarize
+    bin_var_img = cv.threshold(var_img, otsu_1d(var_img), 65535, cv.THRESH_BINARY)[1]
+    del var_img
 
-# calculate Variance Map
-var_img = var_map(img_blur, 1)
+    # flip background and foreground
+    bin_var_img[bin_var_img == 0] = 1
+    bin_var_img[bin_var_img == 65535] = 0
+    bin_var_img[~mask.astype(bool)] = 2
 
-# Use Otsu to calculate binary threshold and binarize
-bin_var_img = cv.threshold(var_img, otsu_1d(var_img), 65535, cv.THRESH_BINARY)[1]
+    # Set kernels for morphological operations and CC
+    kernel_er = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2))
+    kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (4, 4))
+    min_size = 60
 
-# flip background and foreground
-bin_var_img[bin_var_img == 0] = 1
-bin_var_img[bin_var_img == 65535] = 0
+    # Erode->Remove small features->dilate
+    morph_img = cv.erode(bin_var_img, kernel_er)
+    morph_img = remove_component(morph_img, min_size)
+    morph_img[~mask.astype(bool)] = 2
+    morph_img = cv.dilate(morph_img, kernel_dil)
+    del bin_var_img
+    #num_pix = morph_img.shape[0]*morph_img.shape[1]
+    #(num_pix - morph_img.sum())/num_pix
 
-# Set kernels for morphological operations and CC
-kernel_er = np.ones((2,2),np.uint8)
-kernel_dil = np.ones((4,4),np.uint8)
-min_size = 50
+    #binary outline for overlay
+    outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))
+    img[outline.astype(bool)] = 0
+    
+    return [outline, morph_img]
 
-# Erode->Remove small features->dilate
-morph_img = cv.erode(bin_var_img, kernel_er)
-morph_img = remove_component(morph_img, min_size)
-morph_img = cv.dilate(morph_img, kernel_dil)
+    # Main Code
+if __name__ == '__main__':
+#    file = 'K:\\Coverage\\corr_trans_10-3-2018_2\\corr_trans_10-3-2018_2_MMStack_3-Pos_005_018.ome.tif'
+    file = 'H:\\Cell Coverage\\cellCvgSc\\corrT_0\\corrT_1_MMStack_4-Pos_009_016.ome.tif'
 
-# display images
-r = [0, 256, 512, 768, 1024]
-for x_r in range(4):
-    for y_r in range(4):
-        plt.figure()
-        plt.subplot(1, 2, 1)
-        plt.imshow(img[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap='gray')
-        plt.subplot(1, 2, 2)
-        plt.imshow(morph_img[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap='gray')
+    img = cv.imread(file, -1)
+
+    [outline, morph_img] = analyze_img(img)
+
+#    my_cmap = cm.Purples
+#    my_cmap.set_under('k', alpha=0)
+
+    #n, hist_bins, patches = plt.hist(var_img2_m.flatten(),
+    #                                 range(var_img2_m.min(), var_img2_m.max()),
+    #                                 density=True)
+    #
+    #n, hist_bins, patches = plt.hist(blur_var1.flatten(), bins=400)
+#    plt.figure()
+#    plt.imshow(img, cmap='gray')
+    
+    
+    # display images
+#    r = [0, 256, 512, 768, 1024]
+#    for x_r in range(4):
+#        for y_r in range(4):
+#            fig = plt.figure()
+#            plt.subplot(1, 2, 1)
+#            plt.imshow(img[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap='gray')
+#            plt.subplot(1, 2, 2)
+#            plt.imshow(img[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap='gray')
+#            plt.imshow(outline[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap=my_cmap, clim=[0.9, 1])
+#            while plt.fignum_exists(fig.number):
+#                fig.canvas.flush_events()
