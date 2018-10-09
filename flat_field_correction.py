@@ -4,29 +4,38 @@ Created on Thu Sep 20 16:18:32 2018
 
 @author: Scott
 """
+
 import glob
 import cv2 as cv
-#from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 import os
 import numpy as np
 
 # root directory
-root = 'H:\\Cell Coverage\\cellCvgSc\\'
+root = 'K:\\Coverage\\'
 
 # cell images prefix and folder
-cell_folder = 'cellR_1'
-cell_filename = 'cellR_1'
+cell_folder = 'transmission10-2-2018_2'
+cell_filename = 'transmission10-2-2018_2'
 
 # flatfield images prefix and folder
-ffc_folder = 'noneR_1'
-ffc_filename = 'noneR_1'
+ffc_folder = 'Treference10-3-2018_2'
+ffc_filename = 'Treference10-3-2018_2'
+ffc_center_file = 'Treference10-3-2018_2_MMStack_3-Pos_003_015.ome.tif'
+ffc_edge_file = 'Treference10-3-2018_2_MMStack_3-Pos_000_006.ome.tif'
 
 # images prefix and folder to save corrected images
-corr_folder = 'corrR_0'
-corr_filename = 'corrT_1'
+corr_folder = 'corr_trans_10-2-2018_2'
+corr_filename = 'corr_trans_10-2-2018_2'
 
+# check if filename matches foldername
 split_num = 2 if cell_filename == cell_folder else 1
 dark_count = 624 # camera dark counts
+
+# Mean value of center image is used for flat field correction
+ffc_center = cv.imread(root + ffc_folder + '\\' + ffc_center_file, -1)
+ffc_center -= dark_count
+img_mean = ffc_center.mean()
 
 # create save folder
 if not os.path.exists(root + corr_folder):
@@ -44,8 +53,11 @@ for cell_img_loc in glob.glob(root + cell_folder + '\\' + cell_filename + '*'):
     cell_img -= dark_count
 
     # calculated corrected image
-    corr_img = ((cell_img * ffc_img.mean())/ffc_img).astype(np.uint16)
+#    corr_img = ((cell_img * ffc_img.mean())/ffc_img).astype(np.uint16)
+    corr_img = ((cell_img * img_mean)/ffc_img).astype(np.uint16)
+    
     # flip orientation for stitching
     corr_img = cv.flip(corr_img, 0)
+    
     # write image to file
     cv.imwrite((root + corr_folder + '\\' + corr_filename + cell_img_loc.split(cell_filename)[split_num]), corr_img)
