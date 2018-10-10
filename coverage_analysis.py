@@ -82,12 +82,12 @@ def var_map(img, dist):
     return output_map
 
 def alt_var_map(img, dist):
+    img = img.astype(np.float32)
     mask = dist_mask(dist)
-    mask /= mask.sum() #Normalize the mask
-#    output_map = np.zeros(img.shape, dtype = np.float32)
+    mask = mask / mask.sum() #Normalize the mask
     mean = cv.filter2D(img, cv.CV_32F, mask)
     sqrMean = cv.filter2D(img*img, cv.CV_32F, mask)
-    return (sqrMean - mean*mean).astype(img.dtype)
+    return (sqrMean - mean*mean)
 
 def otsu_1d(img, wLow = None, wHigh = None):
     ''' calculates the threshold for binarization using Otsu's method.
