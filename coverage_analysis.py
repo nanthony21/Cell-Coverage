@@ -88,7 +88,7 @@ def analyze_img(img, *mask):
 
     # calculate Variance Map
     var_img = var_map(img, 1)
-    var_img[var_img>65535] = 65535
+#    var_img[var_img>65535] = 65535
     # Use Otsu to calculate binary threshold and binarize
     bin_var_img = cv.threshold(var_img, otsu_1d(var_img), 65535, cv.THRESH_BINARY)[1]
     del var_img
