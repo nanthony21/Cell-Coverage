@@ -10,31 +10,10 @@ import cv2 as cv
 from matplotlib import pyplot as plt
 import os
 import numpy as np
-from coverage_analysis import analyze_img
+import coverage_analysis as ca
 
-# calculates the threshold for binarization using Otsu's method
-# This method has been modified to ignore the weight of w0
-# this improved segmentation when one population is very narrow and the other is very wide
-def otsu_1d_mod(img):
 
-    flat_img = img.flatten()
-    var_b_max = 0
-    bin_index = 0
-    step = 25 # If dynamic range is high, then increase step to speed code
-    for bin_val in range(flat_img.min(), flat_img.max(), step):
 
-        # segment data based on bin
-        g0 = flat_img[flat_img <= bin_val]
-        g1 = flat_img[flat_img > bin_val]
-        
-        # determine weights of each bin
-#        w0 = g0.size/flat_img.size
-        w1 = g1.size/flat_img.size
-        
-        # maximize inter-class variance.. removed the weight of w0
-        var_b = w1 * (g0.mean() - g1.mean())**2
-        [var_b_max, bin_index] = [var_b, bin_val] if var_b > var_b_max else [var_b_max, bin_index]
-    return bin_index
 
 # root directory
 root = 'K:\\Coverage\\'
@@ -68,13 +47,13 @@ img_mean = ffc_center.mean()
 # FFC edge images are used to threshold the area outside the dish
 ffc_edge = cv.imread(root + ffc_folder + '\\'  + ffc_filename + edge_file, -1)
 ffc_edge -= dark_count
-ffc_thresh = otsu_1d_mod(ffc_edge)
+ffc_thresh = ca.otsu_1d(ffc_edge, wLow = 1)    #Overriding the weight for the low distribution improved segmentation when one population is very narrow and the other is very wide
 
 # FF corrected cell edge images are used to threshold the edge effects from the dish
 cell_edge = cv.imread(root + cell_folder + '\\'  + cell_filename + edge_file, -1)
 cell_edge -= dark_count
 cell_edge = ((cell_edge * img_mean)/ffc_edge).astype(np.uint16)
-cell_thresh = otsu_1d_mod(cell_edge)
+cell_thresh = ca.otsu_1d(cell_edge, wLow = 1)
 
 # create save folder
 if not os.path.exists(root + corr_folder):
@@ -108,7 +87,7 @@ for cell_img_loc in glob.glob(root + cell_folder + '\\' + cell_filename + '*'):
     background_mask = ffc_mask * corr_mask
     
     # Segment out cells from background
-    [outline, morph_img] = analyze_img(corr_img, background_mask)
+    [outline, morph_img] = ca.analyze_img(corr_img, background_mask)
     
     # Keep track of areas to calculate coverage
     removed_area += np.count_nonzero(morph_img == 2)

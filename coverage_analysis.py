@@ -77,9 +77,10 @@ def var_map(img, dist):
 #            print(ind_y)
     return output_map
 
-# calculates the threshold for binarization using Otsu's method
-def otsu_1d(img):
-
+def otsu_1d(img, wLow = None, wHigh = None):
+    ''' calculates the threshold for binarization using Otsu's method.
+    The weights for the low and high distribution can be overridden using the optional arguments.
+    '''
     flat_img = img.flatten()
     var_b_max = 0
     bin_index = 0
@@ -87,15 +88,15 @@ def otsu_1d(img):
     for bin_val in range(flat_img.min(), flat_img.max(), step):
 
         # segment data based on bin
-        g0 = flat_img[flat_img <= bin_val]
-        g1 = flat_img[flat_img > bin_val]
+        gLow = flat_img[flat_img <= bin_val]
+        gHigh = flat_img[flat_img > bin_val]
         
         # determine weights of each bin
-        w0 = g0.size/flat_img.size
-        w1 = g1.size/flat_img.size
+        wLow = gLow.size/flat_img.size if (wLow is None) else wLow
+        wHigh = gHigh.size/flat_img.size if (wHigh is None) else wLow
         
         # maximize inter-class variance
-        var_b = w0 * w1 * (g0.mean() - g1.mean())**2
+        var_b = wLow * wHigh * (gLow.mean() - gHigh.mean())**2
         [var_b_max, bin_index] = [var_b, bin_val] if var_b > var_b_max else [var_b_max, bin_index]
     return bin_index
 
