@@ -100,7 +100,7 @@ def otsu_1d(img, wLow = None, wHigh = None):
     num_bins = 1000 # Can reduce num_bins to speed code, but reduce accuracy of threshold
     img_min = np.ceil(flat_img.min())
     img_max = np.floor(flat_img.max())
-    for bin_val in np.linspace(img_min, img_max, int((img_max-img_min)/num_bins)):
+    for bin_val in np.linspace(img_min, img_max, int((img_max-img_min)/num_bins), endpoint = False):
         # segment data based on bin
         gLow = flat_img[flat_img <= bin_val]
         gHigh = flat_img[flat_img > bin_val]
