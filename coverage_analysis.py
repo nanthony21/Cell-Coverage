@@ -10,8 +10,8 @@ from matplotlib import pyplot as plt
 import matplotlib.cm as cm
 from scipy import ndimage
 
-#remove components smaller than min_size
 def remove_component(img, min_size):
+    '''remove connected components smaller than min_size'''
     #find all your connected components
     nb_components, output, stats, centroids = cv.connectedComponentsWithStats(img.astype(np.uint8), connectivity=8)
     
@@ -28,8 +28,9 @@ def remove_component(img, min_size):
             
     return img2.astype(img.dtype)
      
-# Create Mask for finding pixels in local neighborhood       
+    
 def dist_mask(dist):
+    ''' Create a circular mask with a radius of `dist`.''' 
     # Initialize output make
     output_mask = np.ones([dist*2 + 1, dist*2 + 1], dtype=np.uint16)
     
