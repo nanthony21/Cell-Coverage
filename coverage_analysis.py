@@ -50,7 +50,8 @@ def var_map(img, dist):
     mask = dist_mask(dist)
     mask_size = dist*2 + 1
     output_map = np.zeros(img.shape, dtype=np.uint16)
-    
+    output_map = np.zeros(img.shape + (mask.sum(),), dtype=np.float)
+    img = img.astype('float')
     # loop through all pixels
     for ind_x in range(img.shape[0]):
         for ind_y in range(img.shape[1]):
@@ -69,12 +70,17 @@ def var_map(img, dist):
             
             # calculate the local spatial variance
             local_img = img[x1:x2, y1:y2]
-            local_mask = mask[-x1_off : mask_size + x2_off, -y1_off : mask_size + y2_off]            
-            output_map[ind_x, ind_y] = (local_img[local_mask.astype(bool)]).var()
+            local_mask = mask[-x1_off : mask_size + x2_off, -y1_off : mask_size + y2_off]   
+            
+            if x1_off + x2_off + y1_off + y2_off != 0:
+                output_map[ind_x, ind_y, :] = np.pad(local_img[local_mask.astype(bool)], (0, mask.sum()-local_mask.sum()), 'constant', constant_values=np.nan)
+            else:
+                output_map[ind_x, ind_y, :] = (local_img[local_mask.astype(bool)])
 #
 #            while plt.fignum_exists(fig.number):
 #                fig.canvas.flush_events()
 #            print(ind_y)
+    output_map = np.nanvar(output_map, axis=2)
     return output_map
 
 # calculates the threshold for binarization using Otsu's method
@@ -83,8 +89,11 @@ def otsu_1d(img):
     flat_img = img.flatten()
     var_b_max = 0
     bin_index = 0
-    step = 25 # If dynamic range is high, then increase step to speed code
-    for bin_val in range(flat_img.min(), flat_img.max(), step):
+    
+    num_bins = 1000 # Can reduce num_bins to speed code, but reduce accuracy of threshold
+    img_min = np.ceil(flat_img.min()).astype(np.uint32)
+    img_max = np.floor(flat_img.max()).astype(np.uint32)
+    for bin_val in range(img_min, img_max, (img_max-img_min)//num_bins):
 
         # segment data based on bin
         g0 = flat_img[flat_img <= bin_val]
@@ -109,7 +118,7 @@ def analyze_img(img, *mask):
 
     # calculate Variance Map
     var_img = var_map(img, 1)
-
+    var_img[var_img>65535] = 65535
     # Use Otsu to calculate binary threshold and binarize
     bin_var_img = cv.threshold(var_img, otsu_1d(var_img), 65535, cv.THRESH_BINARY)[1]
     del var_img
@@ -122,7 +131,7 @@ def analyze_img(img, *mask):
     # Set kernels for morphological operations and CC
     kernel_er = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2))
     kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (4, 4))
-    min_size = 60
+    min_size = 100
 
     # Erode->Remove small features->dilate
     morph_img = cv.erode(bin_var_img, kernel_er)
@@ -135,7 +144,7 @@ def analyze_img(img, *mask):
 
     #binary outline for overlay
     outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))
-    img[outline.astype(bool)] = 0
+#    img[outline.astype(bool)] = 0
     
     return [outline, morph_img]
 
@@ -147,17 +156,18 @@ if __name__ == '__main__':
     img = cv.imread(file, -1)
 
     [outline, morph_img] = analyze_img(img)
-
+    
+    corr_img = img
+    corr_img[outline.astype(bool)] = 0
 #    my_cmap = cm.Purples
 #    my_cmap.set_under('k', alpha=0)
 
-    #n, hist_bins, patches = plt.hist(var_img2_m.flatten(),
-    #                                 range(var_img2_m.min(), var_img2_m.max()),
-    #                                 density=True)
+#    n, hist_bins, patches = plt.hist(var_img.flatten(),bins=400,
+#                                     density=True)
     #
     #n, hist_bins, patches = plt.hist(blur_var1.flatten(), bins=400)
-#    plt.figure()
-#    plt.imshow(img, cmap='gray')
+    plt.figure()
+    plt.imshow(corr_img, cmap='gray')
     
     
     # display images
