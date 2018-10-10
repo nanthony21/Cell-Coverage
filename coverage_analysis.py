@@ -15,18 +15,16 @@ def remove_component(img, min_size):
     #find all your connected components
     nb_components, output, stats, centroids = cv.connectedComponentsWithStats(img.astype(np.uint8), connectivity=8)
     
-    #connectedComponentswithStats yields every seperated component with information on each of them, such as size
-    #the following part is just taking out the background which is also considered a component, but most of the time we don't want that.
-    sizes = stats[1:, -1]
-    nb_components = nb_components - 1
+    #connectedComponentswithStats yields every separated component with information on each of them, such as size
+    sizes = stats[:, -1]
 
     #output_img
     img2 = np.zeros((output.shape))
     
-    #for every component in the image, you keep it only if it's above min_size
-    for i in range(0, nb_components):
+    #for every component in the image, you keep it only if it's above min_size. We start at 1 because 0 is the backgroud which we don't care about.
+    for i in range(1, nb_components):
         if sizes[i] >= min_size:
-            img2[output == i + 1] = 1
+            img2[output == i] = 1
             
     return img2.astype(img.dtype)
      
@@ -86,7 +84,6 @@ def otsu_1d(img, wLow = None, wHigh = None):
     bin_index = 0
     step = 25 # If dynamic range is high, then increase step to speed code
     for bin_val in range(flat_img.min(), flat_img.max(), step):
-
         # segment data based on bin
         gLow = flat_img[flat_img <= bin_val]
         gHigh = flat_img[flat_img > bin_val]
