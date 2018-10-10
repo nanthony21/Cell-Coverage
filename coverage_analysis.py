@@ -48,7 +48,6 @@ def dist_mask(dist):
 def var_map(img, dist):
     mask = dist_mask(dist)
     mask_size = dist*2 + 1
-    output_map = np.zeros(img.shape, dtype=np.uint16)
     output_map = np.zeros(img.shape + (mask.sum(),), dtype=np.float)
     img = img.astype('float')
     # loop through all pixels
