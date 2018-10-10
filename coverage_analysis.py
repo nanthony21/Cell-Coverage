@@ -43,45 +43,9 @@ def dist_mask(dist):
     output_mask[dist_map<=dist] = 1
     return output_mask
 
-# var_map creates a map of the spatial variance 
-# in a neighborhood of size dist at pixels in img
 def var_map(img, dist):
-    mask = dist_mask(dist)
-    mask_size = dist*2 + 1
-    output_map = np.zeros(img.shape + (mask.sum(),), dtype=np.float)
-    img = img.astype('float')
-    # loop through all pixels
-    for ind_x in range(img.shape[0]):
-        for ind_y in range(img.shape[1]):
-            
-            # calculate index offset
-            x1_off = ind_x - dist if ind_x - dist < 0 else 0
-            x2_off = img.shape[0] - (ind_x + dist + 1) if ind_x + dist + 1 > img.shape[0] else 0
-            y1_off = ind_y - dist if ind_y - dist < 0 else 0
-            y2_off = img.shape[1] - (ind_y + dist + 1) if ind_y + dist + 1 > img.shape[1] else 0
-            
-            # calculate index
-            x1 = ind_x - dist - x1_off
-            x2 = ind_x + dist + 1 + x2_off
-            y1 = ind_y - dist - y1_off
-            y2 = ind_y + dist + 1 + y2_off
-            
-            # calculate the local spatial variance
-            local_img = img[x1:x2, y1:y2]
-            local_mask = mask[-x1_off : mask_size + x2_off, -y1_off : mask_size + y2_off]   
-            
-            if x1_off + x2_off + y1_off + y2_off != 0:
-                output_map[ind_x, ind_y, :] = np.pad(local_img[local_mask.astype(bool)], (0, mask.sum()-local_mask.sum()), 'constant', constant_values=np.nan)
-            else:
-                output_map[ind_x, ind_y, :] = (local_img[local_mask.astype(bool)])
-#
-#            while plt.fignum_exists(fig.number):
-#                fig.canvas.flush_events()
-#            print(ind_y)
-    output_map = np.nanvar(output_map, axis=2)
-    return output_map
-
-def alt_var_map(img, dist):
+    ''' var_map creates a map of the spatial variance 
+    in a neighborhood of size dist at pixels in img'''
     img = img.astype(np.float32)
     mask = dist_mask(dist)
     mask = mask / mask.sum() #Normalize the mask
