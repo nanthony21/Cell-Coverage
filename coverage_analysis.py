@@ -90,7 +90,7 @@ def otsu_1d(img):
     var_b_max = 0
     bin_index = 0
     
-    num_bins = 1000 # Can reduce num_bins to speed code, but reduce accuracy of threshold
+    num_bins = 100 # Can reduce num_bins to speed code, but reduce accuracy of threshold
     img_min = np.ceil(flat_img.min()).astype(np.uint32)
     img_max = np.floor(flat_img.max()).astype(np.uint32)
     for bin_val in range(img_min, img_max, (img_max-img_min)//num_bins):
@@ -118,7 +118,9 @@ def analyze_img(img, *mask):
 
     # calculate Variance Map
     var_img = var_map(img, 1)
-    var_img[var_img>65535] = 65535
+    max_var = 500000
+    var_img[var_img>max_var] = max_var
+    
     # Use Otsu to calculate binary threshold and binarize
     bin_var_img = cv.threshold(var_img, otsu_1d(var_img), 65535, cv.THRESH_BINARY)[1]
     del var_img
