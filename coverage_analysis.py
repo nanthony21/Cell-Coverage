@@ -53,7 +53,7 @@ def var_map(img, dist):
     sqrMean = cv.filter2D(img*img, cv.CV_32F, mask)
     return (sqrMean - mean*mean)
 
-def otsu_1d(img, wLow = None, wHigh = None):
+def otsu_1d(img, wLowOpt = None, wHighOpt = None):
     ''' calculates the threshold for binarization using Otsu's method.
     The weights for the low and high distribution can be overridden using the optional arguments.
     '''
@@ -70,8 +70,8 @@ def otsu_1d(img, wLow = None, wHigh = None):
         gHigh = flat_img[flat_img > bin_val]
         
         # determine weights of each bin
-        wLow = gLow.size/flat_img.size if (wLow is None) else wLow
-        wHigh = gHigh.size/flat_img.size if (wHigh is None) else wLow
+        wLow = gLow.size/flat_img.size if (wLowOpt is None) else wLowOpt
+        wHigh = gHigh.size/flat_img.size if (wHighOpt is None) else wLowOpt
         
         # maximize inter-class variance
         var_b = wLow * wHigh * (gLow.mean() - gHigh.mean())**2
@@ -89,6 +89,8 @@ def analyze_img(img, *mask):
     # calculate Variance Map
     var_img = var_map(img, 1)
 #    var_img[var_img>65535] = 65535
+    lim = np.percentile(var_img, 90)
+    var_img[var_img>lim] = lim
     # Use Otsu to calculate binary threshold and binarize
     bin_var_img = cv.threshold(var_img, otsu_1d(var_img), 65535, cv.THRESH_BINARY)[1]
     del var_img
