@@ -88,12 +88,9 @@ def analyze_img(img, *mask):
 
     # calculate Variance Map
     var_img = var_map(img, 1)
-    var_max = 500000
-    var_img[var_img>var_max] = var_max
-#    lim = np.percentile(var_img, 90)
-#    var_img[var_img>lim] = lim
+
     # Use Otsu to calculate binary threshold and binarize
-    bin_var_img = cv.threshold(var_img, otsu_1d(var_img), 65535, cv.THRESH_BINARY)[1]
+    bin_var_img = cv.threshold(var_img, 30000, 65535, cv.THRESH_BINARY)[1]
     del var_img
 
     # flip background and foreground
@@ -102,36 +99,47 @@ def analyze_img(img, *mask):
     bin_var_img[~mask.astype(bool)] = 2
 
     # Set kernels for morphological operations and CC
-    kernel_er = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2))
     kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (4, 4))
     min_size = 100
 
     # Erode->Remove small features->dilate
-    morph_img = cv.erode(bin_var_img, kernel_er)
-    morph_img = remove_component(morph_img, min_size)
+    morph_img = remove_component(bin_var_img, min_size)
     morph_img[~mask.astype(bool)] = 2
     morph_img = cv.dilate(morph_img, kernel_dil)
     del bin_var_img
-    #num_pix = morph_img.shape[0]*morph_img.shape[1]
-    #(num_pix - morph_img.sum())/num_pix
 
     #binary outline for overlay
     outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))
-#    img[outline.astype(bool)] = 0
     
     return [outline, morph_img]
 
     # Main Code
 if __name__ == '__main__':
-#    file = 'K:\\Coverage\\corr_trans_10-3-2018_2\\corr_trans_10-3-2018_2_MMStack_3-Pos_005_018.ome.tif'
-    file = 'H:\\Cell Coverage\\cellCvgSc\\corrT_0\\corrT_1_MMStack_4-Pos_009_016.ome.tif'
-
-    img = cv.imread(file, -1)
-
-    [outline, morph_img] = analyze_img(img)
+#    file1 = 'K:\\Coverage\\corr_trans_10-3-2018_2\\corr_trans_10-3-2018_2_MMStack_3-Pos_005_018.ome.tif'
+    file1 = 'K:\\Coverage\\corr_trans_10-3-2018_2\\corr_trans_10-3-2018_2_MMStack_3-Pos_008_020.ome.tif'
+#    file3 = 'K:\\Coverage\\corr_trans_10-2-2018_2\\corr_trans_10-2-2018_2_MMStack_3-Pos_005_018.ome.tif'
+#    file4 = 'K:\\Coverage\\corr_trans_10-2-2018_2\\corr_trans_10-2-2018_2_MMStack_3-Pos_003_003.ome.tif'
+    file5 = 'H:\\Cell Coverage\\cellCvgSc\\corrT_0\\corrT_1_MMStack_4-Pos_009_016.ome.tif'
+#    file6 = 'H:\\Cell Coverage\\cellCvgSc\\corrT_0\\corrT_1_MMStack_4-Pos_006_005.ome.tif'
     
-    corr_img = img
-    corr_img[outline.astype(bool)] = 0
+#    file_list = [file1, file2, file3, file4, file5, file6]
+    file_list = [file5]
+    
+    for file in file_list:
+        img = cv.imread(file, -1)
+        [outline, morph_img] = analyze_img(img)
+
+#        plt.figure()
+#        plt.subplot(1, 2, 1)
+#        plt.imshow(img, cmap='gray')
+#        img[outline.astype(bool)] = 0
+#        plt.subplot(1, 2, 2)
+#        plt.imshow(img, cmap='gray')
+        
+    
+    
+#    corr_img = img
+#    corr_img[outline.astype(bool)] = 0
 #    my_cmap = cm.Purples
 #    my_cmap.set_under('k', alpha=0)
 
@@ -139,8 +147,8 @@ if __name__ == '__main__':
 #                                     density=True)
     #
     #n, hist_bins, patches = plt.hist(blur_var1.flatten(), bins=400)
-    plt.figure()
-    plt.imshow(corr_img, cmap='gray')
+#    plt.figure()
+#    plt.imshow(corr_img, cmap='gray')
     
     
     # display images
