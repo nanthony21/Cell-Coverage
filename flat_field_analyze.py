@@ -13,23 +13,50 @@ import numpy as np
 import coverage_analysis as ca
 import datetime
 
+## Root folder for experiment
+#root = 'K:\\Coverage\\10-17-18\\'
+## Folder names for each plate to analyze
+#plate_folder_list = ['0HourA2780_1', '0HourA2780_plate2']
+##plate_folder_list = ['0HourA2780_1']
+## Folder and file names for individual well in plate
+#well_folder_list = ['BottomLeft_1', 'BottomMid_1', 'BottomRight_1', 'TopLeft_1', 'TopMid_1', 'TopRight_1']
+## image index for center image for flatfielding
+#center_locations = [('003','004'), ('003','004'), ('003','004'), ('003','004'), ('003','004'), ('003','004')]
+## image index for edge image for masking
+#edge_locations = [('000','009'), ('002','003'), ('001','009'), ('001','006'), ('002','005'), ('000','005')]
+## Flat Field correction folder
+#ffc_folder = 'flatfield_1'
+#file_prefix = '_MMStack_Pos_'
+
 # Root folder for experiment
-root = 'K:\\Coverage\\10-17-18\\'
+root = 'K:\\Coverage\\10-18-18\\'
 # Folder names for each plate to analyze
-plate_folder_list = ['0HourA2780_1', '0HourA2780_plate2']
+plate_folder_list = ['24HourA2780_plate1', '24HourA2780_plate2']
 # Folder and file names for individual well in plate
 well_folder_list = ['BottomLeft_1', 'BottomMid_1', 'BottomRight_1', 'TopLeft_1', 'TopMid_1', 'TopRight_1']
 # image index for center image for flatfielding
-center_locations = [('003','004'), ('003','004'), ('003','004'), ('003','004'), ('003','004'), ('003','004')]
+center_locations = [('003','005'), ('003','004'), ('003','004'), ('003','004'), ('003','004'), ('003','004')]
 # image index for edge image for masking
-edge_locations = [('000','009'), ('002','003'), ('001','009'), ('001','006'), ('002','005'), ('000','005')]
+edge_locations = [('001','007'), ('001','003'), ('001','003'), ('001','008'), ('001','004'), ('000','006')]
+
+# Root folder for experiment
+#root = 'K:\\Coverage\\10-19-18\\'
+# Folder names for each plate to analyze
+#plate_folder_list = ['48HourA2780_plate1', '48HourA2780_plate2']
+# Folder and file names for individual well in plate
+#well_folder_list = ['BottomLeft_1', 'BottomMid_1', 'BottomRight_1', 'TopLeft_1', 'TopMid_1', 'TopRight_1']
+# image index for center image for flatfielding
+#center_locations = [('003','004'), ('003','004'), ('003','004'), ('003','004'), ('003','004'), ('003','004')]
+# image index for edge image for masking
+#edge_locations = [('000','009'), ('001','003'), ('002','008'), ('002','001'), ('001','008'), ('002','008')]
+
 # Flat Field correction folder
-ffc_folder = 'flatfield_1'
+ffc_folder = 'FlatField'
 # Filename prefix
-file_prefix = '_MMStack_Pos_'
+file_prefix = '_MMStack_1-Pos'
 # Folders and File prefix for saving analyzed images
-outline_folder = 'Outline_fix'
-binary_folder = 'Binary_fix'
+outline_folder = 'Outline_Standardized_Single'
+binary_folder = 'Binary_Standardized_Single'
 analyzed_filename = 'analyzed'
 
 # Number list used for grid error correction
@@ -57,6 +84,15 @@ for plate_folder in plate_folder_list:
                                '_' + center_locations[well_index][1] + '.ome.tif', -1)
         ffc_center -= dark_count
         img_mean = ffc_center.mean()
+        
+        # Center cell mean and std for data standardization
+        cell_center = cv.imread(root + plate_folder + '\\' + well_folder + '\\' + 
+                               well_folder + file_prefix + center_locations[well_index][0] +
+                               '_' + center_locations[well_index][1] + '.ome.tif', -1)
+        cell_center -= dark_count
+        cell_center = ((cell_center * img_mean)/ffc_center).astype(np.uint16)
+        cell_mean = cell_center.mean()
+        cell_std = cell_center.std()
         
         # FFC edge images are used to threshold the area outside the dish
         ffc_edge = cv.imread(root + ffc_folder + '\\' + well_folder + '\\' + 
@@ -99,14 +135,16 @@ for plate_folder in plate_folder_list:
         
             # calculated corrected image
             corr_img = ((cell_img * img_mean)/ffc_img).astype(np.uint16)
-        
+            # Data Standardization
+            standard_img = (corr_img-cell_mean)/cell_std
+            
             # Determine mask to remove dark regions and regions outside of dish
             ffc_mask = cv.threshold(ffc_img, ffc_thresh, 65535, cv.THRESH_BINARY)[1]
             corr_mask = cv.threshold(cell_img, cell_thresh, 65535, cv.THRESH_BINARY)[1]
             background_mask = ffc_mask * corr_mask
             
             # Segment out cells from background
-            [outline, morph_img] = ca.analyze_img(corr_img, background_mask)
+            [outline, morph_img] = ca.analyze_img(standard_img, background_mask)
             
             # Keep track of areas to calculate coverage
             removed_area += np.count_nonzero(morph_img == 2)
@@ -117,24 +155,30 @@ for plate_folder in plate_folder_list:
             corr_img[outline.astype(bool)] = 0
             
             # flip orientation for stitching
-            morph_img = cv.flip(morph_img, 0)
-            corr_img = cv.flip(corr_img, 0)
+#            morph_img = cv.flip(morph_img, 0)
+#            corr_img = cv.flip(corr_img, 0)
+            morph_img = np.rot90(morph_img)
+            corr_img = np.rot90(corr_img)
+
+            # Write images to file
+            cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + binary_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), morph_img)
+            cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + outline_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
 
             # Code to deal with snaking error 
-            cell_labels = cell_img_loc.split('.')[0].split('_')
-            cell_num = file_list[-1].split('.')[0].split('_')[6]
-            temp_num_list = num_list[:num_list.index(cell_num)+1]
-            temp_num_list.reverse()
-            relabel_num = temp_num_list[num_list.index(cell_labels[6])]
-            
-            if int(cell_labels[7])%2 == 0:
-                # write image to file
-                cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + binary_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), morph_img)
-                cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + outline_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
-            else:
-                # For odd rows flip image order
-                cv.imwrite((analyzed_folder + well_folder + '_' + binary_folder + '\\' + analyzed_filename + file_prefix + relabel_num + '_' + cell_labels[7] + '.ome.tif') , morph_img)
-                cv.imwrite((analyzed_folder + well_folder + '_' + outline_folder + '\\' + analyzed_filename + file_prefix + relabel_num + '_' + cell_labels[7] + '.ome.tif'), corr_img)
+#            cell_labels = cell_img_loc.split('.')[0].split('_')
+#            cell_num = file_list[-1].split('.')[0].split('_')[6]
+#            temp_num_list = num_list[:num_list.index(cell_num)+1]
+#            temp_num_list.reverse()
+#            relabel_num = temp_num_list[num_list.index(cell_labels[6])]
+#            
+#            if int(cell_labels[7])%2 == 0:
+#                # write image to file
+#                cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + binary_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), morph_img)
+#                cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + outline_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
+#            else:
+#                # For odd rows flip image order
+#                cv.imwrite((analyzed_folder + well_folder + '_' + binary_folder + '\\' + analyzed_filename + file_prefix + relabel_num + '_' + cell_labels[7] + '.ome.tif') , morph_img)
+#                cv.imwrite((analyzed_folder + well_folder + '_' + outline_folder + '\\' + analyzed_filename + file_prefix + relabel_num + '_' + cell_labels[7] + '.ome.tif'), corr_img)
         
         # Output and save coverage numbers
         print('The coverage is ', 100*cell_area/(cell_area + background_area), ' %')
