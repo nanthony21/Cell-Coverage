@@ -14,34 +14,23 @@ import numpy as np
 import coverage_analysis as ca
 import datetime
 
-
-# Root folder for experiment
-#root = 'K:\\Coverage\\10-24-18_Greta\\'
-## Folder names for each plate to analyze
-#plate_folder_list = ['A2780_0Hour_Plate1','A2780_0Hour_Plate2','A2780_0Hour_Plate3','A2780_0Hour_Plate4']
-##plate_folder_list = ['A2780_0Hour_Plate1','A2780_0Hour_Plate2','A2780_0Hour_Plate3','A2780_0Hour_Plate4']
-## Folder and file names for individual well in plate
-#well_folder_list = ['BottomLeft_1', 'BottomMid_1', 'BottomRight_1', 'TopLeft_1', 'TopMid_1', 'TopRight_1']
-## image index for center image for flatfielding
-##center_locations = [('002','005')]
-#center_locations = [('000','006'), ('002','005'), ('002','005'), ('002','005'), ('002','005'), ('002','005')]
-## image index for edge image for masking
-##edge_locations = [('001','001')]
-#edge_locations = [('001','001'), ('001','008'), ('001','008'), ('001','001'), ('001','008'), ('001','008')]
+'''********USer Inputs!!*******'''
 
 ## Root folder for experiment
-root = 'K:\\Coverage\\10-23-18_Jane\\10-25-18\\'
+root = r'G:\10-30-18 Coverage'
 # Folder names for each plate to analyze
-plate_folder_list = ['A2780_48Hour_Plate1', 'A2780_48Hour_Plate2', 'A2780_48Hour_Plate3']
+plate_folder_list = ['Dish1']
 # Folder and file names for individual well in plate
 well_folder_list = ['BottomLeft_1', 'BottomMid_1', 'BottomRight_1', 'TopLeft_1', 'TopMid_1', 'TopRight_1']
 # image index for center image for flatfielding
-#center_locations = [('002','005')]
 center_locations = [('000','006'), ('002','005'), ('002','005'), ('002','005'), ('002','005'), ('002','005')]
 # image index for edge image for masking
-#edge_locations = [('001','001')]
 edge_locations = [('001','001'), ('001','008'), ('001','008'), ('001','001'), ('001','008'), ('001','008')]
+#A number to be added as asuffix to the output files
+analysisNum:int = 1
 
+
+'''**********************'''
 
 # Flat Field correction folder
 ffc_folder = 'FlatField'
@@ -49,9 +38,9 @@ ffc_folder = 'FlatField'
 # Filename prefix
 file_prefix = '_MMStack_1-Pos'
 # Folders and File prefix for saving analyzed images
-outline_folder = 'Outline 2'
-binary_folder = 'Binary 2'
-ff_corr_folder = 'Corrected 2'
+outline_folder = 'Outline_{}'.format(analysisNum)
+binary_folder = 'Binary_{}'.format(analysisNum)
+ff_corr_folder = 'Corrected_{}'.format(analysisNum)
 analyzed_filename = 'analyzed'
 
 # Number list used for grid error correction
