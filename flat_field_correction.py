@@ -5,10 +5,11 @@ Created on Thu Sep 20 16:18:32 2018
 @author: Scott
 """
 
-import glob
+from glob import glob
 import cv2 as cv
 from matplotlib import pyplot as plt
 import os
+import os.path as osp
 import numpy as np
 
 # root directory
@@ -33,18 +34,18 @@ split_num = 2 if cell_filename == cell_folder else 1
 dark_count = 624 # camera dark counts
 
 # Mean value of center image is used for flat field correction
-ffc_center = cv.imread(root + ffc_folder + '\\' + ffc_center_file, -1)
+ffc_center = cv.imread(osp.join(root, ffc_folder, ffc_center_file), -1)
 ffc_center -= dark_count
 img_mean = ffc_center.mean()
 
 # create save folder
-if not os.path.exists(root + corr_folder):
-    os.makedirs(root + corr_folder)
+if not osp.exists(osp.join(root, corr_folder)):
+    os.makedirs(osp.join(root, corr_folder))
 
 # loop through cell images
-for cell_img_loc in glob.glob(root + cell_folder + '\\' + cell_filename + '*'):
+for cell_img_loc in glob(osp.join(root, cell_folder, cell_filename + '*')):
     # load flat field
-    ffc_img_loc = (root + ffc_folder + '\\' + ffc_filename + cell_img_loc.split(cell_filename)[split_num])
+    ffc_img_loc = (osp.join(root, ffc_folder, ffc_filename, cell_img_loc.split(cell_filename)[split_num]))
     ffc_img = cv.imread(ffc_img_loc, -1)
     ffc_img -= dark_count
     
@@ -60,4 +61,4 @@ for cell_img_loc in glob.glob(root + cell_folder + '\\' + cell_filename + '*'):
 #    corr_img = cv.flip(corr_img, 0)
     
     # write image to file
-    cv.imwrite((root + corr_folder + '\\' + corr_filename + cell_img_loc.split(cell_filename)[split_num]), corr_img)
+    cv.imwrite(osp.join(root, corr_folder, corr_filename, cell_img_loc.split(cell_filename)[split_num]), corr_img)

@@ -5,10 +5,11 @@ Created on Thu Sep 20 16:18:32 2018
 @author: Scott
 """
 import sys
-import glob
+from glob import glob
 import cv2 as cv
 from matplotlib import pyplot as plt
 import os
+import os.path as osp
 import numpy as np
 import coverage_analysis as ca
 import datetime
@@ -62,45 +63,52 @@ dark_count = 624 # camera dark counts
 for plate_folder in plate_folder_list:
     
     # Create folder for results
-    analyzed_folder = root + plate_folder + '\\Analyzed\\'
-    if not os.path.exists(analyzed_folder):
+    analyzed_folder = osp.join(root, plate_folder, 'Analyzed')
+    if not osp.exists(analyzed_folder):
         os.makedirs(analyzed_folder)
     # Initialize txt file to save coverage numbers
-    f= open((analyzed_folder + 'Coverage Results.txt'),"a")
+    f= open(osp.join(analyzed_folder, 'Coverage Results.txt'),"a")
     f.write(str(datetime.datetime.now()) + '\n')
     
     #loop through wells
     for well_index, well_folder in enumerate(well_folder_list):
 
         # Mean value of center image is used for flat field correction
-        ffc_center = cv.imread(root + ffc_folder + '\\' + well_folder + '\\' + 
+        ffc_center = cv.imread(osp.join(root, ffc_folder, well_folder, 
                                well_folder + file_prefix + center_locations[well_index][0] +
-                               '_' + center_locations[well_index][1] + '.ome.tif', -1)
+                               '_' + center_locations[well_index][1] + '.ome.tif'), -1)
         ffc_center -= dark_count
         ffc_mean = ffc_center.mean()
         ffc_std = ffc_center.std()
+        cell_center = cv.imread(os.parth.join(root, plate_folder, well_folder, 
+                               well_folder + file_prefix + center_locations[well_index][0] +
+                               '_' + center_locations[well_index][1] + '.ome.tif'), -1)
+        cell_center -= dark_count
+        cell_center = ((cell_center * img_mean)/ffc_center).astype(np.uint16)
+        cell_mean = cell_center.mean()
+        cell_std = cell_center.std()
         
         # FFC edge images are used to threshold the area outside the dish
-        ffc_edge = cv.imread(root + ffc_folder + '\\' + well_folder + '\\' + 
+        ffc_edge = cv.imread(osp.join(root, ffc_folder, well_folder,
                                well_folder + file_prefix + edge_locations[well_index][0] +
-                               '_' + edge_locations[well_index][1] + '.ome.tif', -1)
+                               '_' + edge_locations[well_index][1] + '.ome.tif'), -1)
         ffc_edge -= dark_count
         ffc_thresh = ca.otsu_1d(ffc_edge, wLowOpt = 1)    #Overriding the weight for the low distribution improved segmentation when one population is very narrow and the other is very wide
         
         # FF corrected cell edge images are used to threshold the edge effects from the dish
-        cell_edge = cv.imread(root + plate_folder + '\\' + well_folder + '\\' + 
+        cell_edge = cv.imread(osp.join(root, plate_folder, well_folder, 
                                well_folder + file_prefix + edge_locations[well_index][0] +
-                               '_' + edge_locations[well_index][1] + '.ome.tif', -1)
+                               '_' + edge_locations[well_index][1] + '.ome.tif'), -1)
         cell_edge -= dark_count
         cell_edge = ((cell_edge * ffc_mean)/ffc_edge).astype(np.uint16)
         cell_thresh = ca.otsu_1d(cell_edge, wLowOpt = 1)
         
         # create save folder
-        if not os.path.exists(analyzed_folder + '\\' + well_folder + '_' + outline_folder):
-            os.makedirs(analyzed_folder + '\\' + well_folder + '_' + outline_folder)
+        if not osp.exists(osp.join(analyzed_folder, well_folder + '_' + outline_folder)):
+            os.makedirs(osp.join(analyzed_folder, well_folder + '_' + outline_folder))
          # create save folder
-        if not os.path.exists(analyzed_folder + '\\' + well_folder + '_' + binary_folder):
-            os.makedirs(analyzed_folder + '\\' + well_folder + '_' + binary_folder)   
+        if not osp.exists(osp.join(analyzed_folder, well_folder + '_' + binary_folder)):
+            os.makedirs(osp.join(analyzed_folder, well_folder + '_' + binary_folder))  
         if not os.path.exists(analyzed_folder + '\\' + well_folder + '_' + ff_corr_folder):
             os.makedirs(analyzed_folder + '\\' + well_folder + '_' + ff_corr_folder) 
             
@@ -110,10 +118,10 @@ for plate_folder in plate_folder_list:
         removed_area = 0
 
         # loop through cell images        
-        file_list = glob.glob(root + plate_folder + '\\' + well_folder + '\\' + well_folder + file_prefix + '*')
+        file_list = glob(osp.join(root, plate_folder, well_folder, well_folder + file_prefix + '*'))
         for cell_img_loc in file_list:
             # load flat field
-            ffc_img_loc = (root + ffc_folder + '\\' + well_folder + '\\' + well_folder + cell_img_loc.split(well_folder)[2])
+            ffc_img_loc = osp.join(root, ffc_folder, well_folder, well_folder + cell_img_loc.split(well_folder)[2])
             ffc_img = cv.imread(ffc_img_loc, -1)
             ffc_img -= dark_count
             
@@ -122,9 +130,9 @@ for plate_folder in plate_folder_list:
             cell_img -= dark_count
         
             # calculated corrected image
-            corr_img = ((cell_img * ffc_mean)/ffc_img).astype(np.uint16)
+            corr_img = ((cell_img * img_mean)/ffc_img).astype(np.uint16)
             # Data Standardization
-            standard_img = (corr_img-ffc_mean)/ffc_std
+            standard_img = (corr_img-cell_mean)/cell_std
             
             # Determine mask to remove dark regions and regions outside of dish
             ffc_mask = cv.threshold(ffc_img, ffc_thresh, 65535, cv.THRESH_BINARY)[1]
@@ -148,7 +156,7 @@ for plate_folder in plate_folder_list:
 #            outline = np.rot90(outline)
             
             # Write images to file
-            cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + binary_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), morph_img)
+            cv.imwrite(osp.join(analyzed_folder, well_folder + '_' + binary_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), morph_img)
             cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + ff_corr_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
             # Add segmentation outline to corrected image
             corr_img[outline.astype(bool)] = 0
@@ -172,7 +180,7 @@ for plate_folder in plate_folder_list:
         
         # Output and save coverage numbers
         print('The coverage is ', 100*cell_area/(cell_area + background_area), ' %')
-        f = open((analyzed_folder + '\\Coverage Results.txt'),"a")
+        f = open((osp.join(analyzed_folder, 'Coverage Results.txt'),"a")
         f.write(plate_folder + '  ' + well_folder + '\n')
         f.write(('The coverage is '+ str(100*cell_area/(cell_area + background_area)) + ' %') + '\n \n')
         f.close() 
