@@ -90,16 +90,10 @@ def analyze_img(img, *mask):
 #    img = (img-img.mean())/img.std()
 
     # calculate Variance Map
-    var_img = var_map(img, 1)
-    
-#    plt.figure()
-#    plt.hist(var_img.flatten(), bins=400)
-#    plt.imshow(cv.threshold(var_img, 0.5, 1, cv.THRESH_BINARY)[1])
+    var_img = var_map(img, 2)
     
     # Use Otsu to calculate binary threshold and binarize
-#    bin_var_img = cv.threshold(var_img, 30000, 65535, cv.THRESH_BINARY)[1]
-    bin_var_img = cv.threshold(var_img, 0.05, 65535, cv.THRESH_BINARY)[1]
-    del var_img
+    bin_var_img = cv.threshold(var_img, 0.015, 65535, cv.THRESH_BINARY)[1]
 
     # flip background and foreground
     bin_var_img[bin_var_img == 0] = 1
@@ -107,14 +101,14 @@ def analyze_img(img, *mask):
     bin_var_img[~mask.astype(bool)] = 2
 
     # Set kernels for morphological operations and CC
-    kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (4, 4))
+    kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
     min_size = 100
 
     # Erode->Remove small features->dilate
     morph_img = remove_component(bin_var_img, min_size)
+
     morph_img[~mask.astype(bool)] = 2
     morph_img = cv.dilate(morph_img, kernel_dil)
-    del bin_var_img
 
     #binary outline for overlay
     outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))
@@ -124,26 +118,44 @@ def analyze_img(img, *mask):
     # Main Code
 if __name__ == '__main__':
     file1 = 'K:\\Coverage\\10-2-18 and 10-3-18\\corr_trans_10-3-2018_2\\corr_trans_10-3-2018_2_MMStack_3-Pos_005_018.ome.tif'
+    file1f = r'K:\Coverage\10-2-18 and 10-3-18\Treference10-3-2018_2\Treference10-3-2018_2_MMStack_3-Pos_005_018.ome.tif'
     file2 = 'K:\\Coverage\\10-2-18 and 10-3-18\\corr_trans_10-3-2018_2\\corr_trans_10-3-2018_2_MMStack_3-Pos_008_020.ome.tif'
+    file2f = r'K:\Coverage\10-2-18 and 10-3-18\Treference10-3-2018_2\Treference10-3-2018_2_MMStack_3-Pos_008_020.ome.tif'
     file3 = 'K:\\Coverage\\10-2-18 and 10-3-18\\corr_trans_10-2-2018_2\\corr_trans_10-2-2018_2_MMStack_3-Pos_005_018.ome.tif'
     file4 = 'K:\\Coverage\\10-2-18 and 10-3-18\\corr_trans_10-2-2018_2\\corr_trans_10-2-2018_2_MMStack_3-Pos_003_003.ome.tif'
     file5 = 'H:\\Cell Coverage\\cellCvgSc\\corrT_0\\corrT_1_MMStack_4-Pos_009_016.ome.tif'
+    file5f = r'H:\Cell Coverage\cellCvgSc\noneT_1\noneT_1_MMStack_4-Pos_009_016.ome.tif'
     file6 = 'H:\\Cell Coverage\\cellCvgSc\\corrT_0\\corrT_1_MMStack_4-Pos_006_005.ome.tif'
+    file6f = r'H:\Cell Coverage\cellCvgSc\noneT_1\noneT_1_MMStack_4-Pos_006_005.ome.tif'
+    file7 = 'K:\\Coverage\\10-23-18\\A2780Plate1\\Analyzed\\TopLeft_1_Corrected\\analyzed_MMStack_1-Pos003_007.ome.tif'
+    file8 = r'K:\Coverage\10-24-18_Greta\A2780_0Hour_Plate1\Analyzed\TopLeft_1_Corrected\analyzed_MMStack_1-Pos003_007.ome.tif'
+    file8f = r'K:\Coverage\10-24-18_Greta\FlatField_0Hour\TopLeft_1\TopLeft_1_MMStack_1-Pos003_007.ome.tif'
+    file9 = r'K:\Coverage\10-23-18\A2780Plate1\Analyzed\BottomLeft_1_Corrected\analyzed_MMStack_1-Pos007_005.ome.tif'
+    file10 = r'K:\Coverage\10-23-18_Jane\10-24-18\A2780_Plate1\Analyzed\TopMid_1_Corrected\analyzed_MMStack_1-Pos002_004.ome.tif'
+    file10f = r'K:\Coverage\10-23-18_Jane\10-24-18\FlatField\TopMid_1\TopMid_1_MMStack_1-Pos002_004.ome.tif'
+    file11 = r'K:\Coverage\10-24-18_Greta\A2780_24Hour_Plate1\Analyzed\TopLeft_1_Corrected\analyzed_MMStack_1-Pos001_004.ome.tif'
+    file11f = r'K:\Coverage\10-24-18_Greta\FlatField_24Hour\TopLeft_1\TopLeft_1_MMStack_1-Pos001_004.ome.tif'
     
+    file12 = r'K:\Coverage\10-24-18_Greta\A2780_48Hour_Plate4\Analyzed\TopLeft_1_Corrected\analyzed_MMStack_1-Pos007_005.ome.tif'
+    file12f = r'K:\Coverage\10-24-18_Greta\FlatField_48Hour\TopLeft_1\TopLeft_1_MMStack_1-Pos007_005.ome.tif'
+    file_list = [file1, file6, file8, file10, file11, file12]
+    ff_list = [file1f, file6f, file8f, file10f, file11f, file12f]
+#    file_list = [file5]
+#    ff_list = [file5f]
+#    plt.imshow(cv.imread(file, -1))
+#    file_list = [file7]
     
-    file_list = [file1, file2, file3, file4, file5, file6]
-    
-#    img = cv.imread(file1, -1)
-#    file_list = [file1]
-    
-    for file in file_list:
-        img = cv.imread(file, -1)
-        [outline, morph_img] = analyze_img(img)
+    for ind in range(len(file_list)):
+        img = cv.imread(file_list[ind], -1)
+        img_sta = cv.imread(ff_list[ind], -1)
+        corr_img = (img-img_sta.mean())/img_sta.std()
+        [outline, morph_img] = analyze_img(corr_img)
 
         plt.figure()
         plt.subplot(1, 2, 1)
         plt.imshow(img, cmap='gray')
         img[outline.astype(bool)] = 0
+        cv.imwrite(r'C:\Users\Scott\Documents\cell-coverage\presentation images\example'+str(ind)+'.tif', img)
         plt.subplot(1, 2, 2)
         plt.imshow(img, cmap='gray')
         
