@@ -100,7 +100,7 @@ for plate_folder in plate_folder_list:
                                well_folder + file_prefix + edge_locations[well_index][0] +
                                '_' + edge_locations[well_index][1] + '.ome.tif'), -1)
         cell_edge -= dark_count
-        cell_edge = ((cell_edge * ffc_mean)/ffc_edge).astype(np.uint16)
+        cell_edge = ((cell_edge * img_mean)/ffc_edge).astype(np.uint16)
         cell_thresh = ca.otsu_1d(cell_edge, wLowOpt = 1)
         
         # create save folder
