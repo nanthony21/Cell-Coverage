@@ -1,6 +1,6 @@
 root = "K:\\Coverage\\10-24-18_Greta\\";
 file_name = "analyzed_MMStack_1-Pos{xxx}_{yyy}.ome.tif";
-plate_folder_list = newArray("A2780_48Hour_Plate1", "A2780_48Hour_Plate2", "A2780_48Hour_Plate3", "A2780_48Hour_Plate4");
+plate_folder_list = newArray("A2780_0Hour_Plate1", "A2780_0Hour_Plate2", "A2780_0Hour_Plate3", "A2780_0Hour_Plate4");
 well_folder_list = newArray("BottomLeft_1", "BottomMid_1", "BottomRight_1", "TopLeft_1", "TopMid_1", "TopRight_1");
 grid_size_x = newArray(10,12,12,10,12,12);
 grid_size_y = newArray(12,12,12,12,12,12);
@@ -8,9 +8,9 @@ grid_size_y = newArray(12,12,12,12,12,12);
 outline_pre = "_Outline 2"
 binary_pre = "_Binary 2"
 
-for (j = 0; j <= 3; j++){
+for (j = 0; j < plate_folder_list.length; j++){
 
-	for (i = 0 ; i <= 5; i++) {
+	for (i = 0 ; i < well_folder_list.length; i++) {
 		test = plate_folder_list[j];
 		test = well_folder_list[i];
 		test = grid_size_x[i];
@@ -24,9 +24,9 @@ for (j = 0; j <= 3; j++){
 	}
 }
 
-for (j = 0; j <= 3; j++){
+for (j = 0; j < plate_folder_list.length; j++){
 
-	for (i = 0 ; i <= 5; i++) {
+	for (i = 0 ; i < well_folder_list.length; i++) {
 		test = plate_folder_list[j];
 		test = well_folder_list[i];
 		test = grid_size_x[i];
