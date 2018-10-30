@@ -80,7 +80,7 @@ for plate_folder in plate_folder_list:
         ffc_center -= dark_count
         ffc_mean = ffc_center.mean()
         ffc_std = ffc_center.std()
-        cell_center = cv.imread(os.parth.join(root, plate_folder, well_folder, 
+        cell_center = cv.imread(os.path.join(root, plate_folder, well_folder, 
                                well_folder + file_prefix + center_locations[well_index][0] +
                                '_' + center_locations[well_index][1] + '.ome.tif'), -1)
         cell_center -= dark_count
@@ -157,10 +157,10 @@ for plate_folder in plate_folder_list:
             
             # Write images to file
             cv.imwrite(osp.join(analyzed_folder, well_folder + '_' + binary_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), morph_img)
-            cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + ff_corr_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
+            cv.imwrite(osp.join(analyzed_folder,well_folder + '_' + ff_corr_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
             # Add segmentation outline to corrected image
             corr_img[outline.astype(bool)] = 0
-            cv.imwrite((analyzed_folder + '\\' + well_folder + '_' + outline_folder + '\\' + analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
+            cv.imwrite(osp.join(analyzed_folder, well_folder + '_' + outline_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
             
             # Code to deal with snaking error 
 #            cell_labels = cell_img_loc.split('.')[0].split('_')
