@@ -103,7 +103,7 @@ for plate_folder in plate_folder_list:
             os.makedirs(analyzed_folder + '\\' + well_folder + '_' + binary_folder)   
         if not os.path.exists(analyzed_folder + '\\' + well_folder + '_' + ff_corr_folder):
             os.makedirs(analyzed_folder + '\\' + well_folder + '_' + ff_corr_folder) 
-            ff_corr_folder
+            
         # Intialize coverage variables
         cell_area = 0
         background_area = 0

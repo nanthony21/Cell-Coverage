@@ -12,11 +12,11 @@ import os
 import numpy as np
 
 # root directory
-root = 'K:\\Coverage\\'
+root = 'K:\\Coverage\\10-17-18\\0HourA2780_1\\'
 
 # cell images prefix and folder
-cell_folder = 'transmission10-2-2018_2'
-cell_filename = 'transmission10-2-2018_2'
+cell_folder = 'BottomLeft_1'
+cell_filename = 'BottomLeft_1'
 
 # flatfield images prefix and folder
 ffc_folder = 'Treference10-3-2018_2'
@@ -57,7 +57,7 @@ for cell_img_loc in glob.glob(root + cell_folder + '\\' + cell_filename + '*'):
     corr_img = ((cell_img * img_mean)/ffc_img).astype(np.uint16)
     
     # flip orientation for stitching
-    corr_img = cv.flip(corr_img, 0)
+#    corr_img = cv.flip(corr_img, 0)
     
     # write image to file
     cv.imwrite((root + corr_folder + '\\' + corr_filename + cell_img_loc.split(cell_filename)[split_num]), corr_img)
