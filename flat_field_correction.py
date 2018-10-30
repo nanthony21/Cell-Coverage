@@ -5,7 +5,7 @@ Created on Thu Sep 20 16:18:32 2018
 @author: Scott
 """
 
-import glob
+from glob import glob
 import cv2 as cv
 from matplotlib import pyplot as plt
 import os
@@ -43,7 +43,7 @@ if not osp.exists(osp.join(root, corr_folder)):
     os.makedirs(osp.join(root, corr_folder))
 
 # loop through cell images
-for cell_img_loc in glob.glob(osp.join(root, cell_folder, cell_filename + '*')):
+for cell_img_loc in glob(osp.join(root, cell_folder, cell_filename + '*')):
     # load flat field
     ffc_img_loc = (osp.join(root, ffc_folder, ffc_filename, cell_img_loc.split(cell_filename)[split_num]))
     ffc_img = cv.imread(ffc_img_loc, -1)

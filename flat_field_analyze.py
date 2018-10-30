@@ -5,7 +5,7 @@ Created on Thu Sep 20 16:18:32 2018
 @author: Scott
 """
 import sys
-import glob
+from glob import glob
 import cv2 as cv
 from matplotlib import pyplot as plt
 import os
@@ -123,7 +123,7 @@ for plate_folder in plate_folder_list:
         removed_area = 0
 
         # loop through cell images        
-        file_list = glob.glob(osp.join(root, plate_folder, well_folder, well_folder + file_prefix + '*'))
+        file_list = glob(osp.join(root, plate_folder, well_folder, well_folder + file_prefix + '*'))
         for cell_img_loc in file_list:
             # load flat field
             ffc_img_loc = osp.join(root, ffc_folder, well_folder, well_folder + cell_img_loc.split(well_folder)[2])
