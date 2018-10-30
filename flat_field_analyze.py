@@ -16,23 +16,10 @@ import datetime
 
 
 # Root folder for experiment
-root = 'K:\\Coverage\\10-24-18_Greta\\'
-# Folder names for each plate to analyze
-plate_folder_list = ['A2780_0Hour_Plate1','A2780_0Hour_Plate2','A2780_0Hour_Plate3','A2780_0Hour_Plate4']
-#plate_folder_list = ['A2780_0Hour_Plate1','A2780_0Hour_Plate2','A2780_0Hour_Plate3','A2780_0Hour_Plate4']
-# Folder and file names for individual well in plate
-well_folder_list = ['BottomLeft_1', 'BottomMid_1', 'BottomRight_1', 'TopLeft_1', 'TopMid_1', 'TopRight_1']
-# image index for center image for flatfielding
-#center_locations = [('002','005')]
-center_locations = [('000','006'), ('002','005'), ('002','005'), ('002','005'), ('002','005'), ('002','005')]
-# image index for edge image for masking
-#edge_locations = [('001','001')]
-edge_locations = [('001','001'), ('001','008'), ('001','008'), ('001','001'), ('001','008'), ('001','008')]
-
-## Root folder for experiment
-#root = 'K:\\Coverage\\10-23-18_Jane\\10-25-18\\'
+#root = 'K:\\Coverage\\10-24-18_Greta\\'
 ## Folder names for each plate to analyze
-#plate_folder_list = ['A2780_48Hour_Plate1', 'A2780_48Hour_Plate2', 'A2780_48Hour_Plate3']
+#plate_folder_list = ['A2780_0Hour_Plate1','A2780_0Hour_Plate2','A2780_0Hour_Plate3','A2780_0Hour_Plate4']
+##plate_folder_list = ['A2780_0Hour_Plate1','A2780_0Hour_Plate2','A2780_0Hour_Plate3','A2780_0Hour_Plate4']
 ## Folder and file names for individual well in plate
 #well_folder_list = ['BottomLeft_1', 'BottomMid_1', 'BottomRight_1', 'TopLeft_1', 'TopMid_1', 'TopRight_1']
 ## image index for center image for flatfielding
@@ -42,10 +29,23 @@ edge_locations = [('001','001'), ('001','008'), ('001','008'), ('001','001'), ('
 ##edge_locations = [('001','001')]
 #edge_locations = [('001','001'), ('001','008'), ('001','008'), ('001','001'), ('001','008'), ('001','008')]
 
+## Root folder for experiment
+root = 'K:\\Coverage\\10-23-18_Jane\\10-25-18\\'
+# Folder names for each plate to analyze
+plate_folder_list = ['A2780_48Hour_Plate1', 'A2780_48Hour_Plate2', 'A2780_48Hour_Plate3']
+# Folder and file names for individual well in plate
+well_folder_list = ['BottomLeft_1', 'BottomMid_1', 'BottomRight_1', 'TopLeft_1', 'TopMid_1', 'TopRight_1']
+# image index for center image for flatfielding
+#center_locations = [('002','005')]
+center_locations = [('000','006'), ('002','005'), ('002','005'), ('002','005'), ('002','005'), ('002','005')]
+# image index for edge image for masking
+#edge_locations = [('001','001')]
+edge_locations = [('001','001'), ('001','008'), ('001','008'), ('001','001'), ('001','008'), ('001','008')]
+
 
 # Flat Field correction folder
-#ffc_folder = 'FlatField'
-ffc_folder = 'FlatField_0Hour'
+ffc_folder = 'FlatField'
+#ffc_folder = 'FlatField_0Hour'
 # Filename prefix
 file_prefix = '_MMStack_1-Pos'
 # Folders and File prefix for saving analyzed images
@@ -78,8 +78,8 @@ for plate_folder in plate_folder_list:
                                well_folder + file_prefix + center_locations[well_index][0] +
                                '_' + center_locations[well_index][1] + '.ome.tif'), -1)
         ffc_center -= dark_count
-        ffc_mean = ffc_center.mean()
-        ffc_std = ffc_center.std()
+        img_mean = ffc_center.mean()
+
         cell_center = cv.imread(os.path.join(root, plate_folder, well_folder, 
                                well_folder + file_prefix + center_locations[well_index][0] +
                                '_' + center_locations[well_index][1] + '.ome.tif'), -1)
@@ -180,7 +180,7 @@ for plate_folder in plate_folder_list:
         
         # Output and save coverage numbers
         print('The coverage is ', 100*cell_area/(cell_area + background_area), ' %')
-        f = open((osp.join(analyzed_folder, 'Coverage Results.txt'),"a")
+        f = open(osp.join(analyzed_folder, 'Coverage Results.txt'),"a")
         f.write(plate_folder + '  ' + well_folder + '\n')
         f.write(('The coverage is '+ str(100*cell_area/(cell_area + background_area)) + ' %') + '\n \n')
         f.close() 
