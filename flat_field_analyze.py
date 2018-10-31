@@ -34,7 +34,6 @@ analysisNum:int = 1
 
 # Flat Field correction folder
 ffc_folder = 'FlatField'
-#ffc_folder = 'FlatField_0Hour'
 # Filename prefix
 file_prefix = '_MMStack_1-Pos'
 # Folders and File prefix for saving analyzed images
@@ -56,8 +55,8 @@ for plate_folder in plate_folder_list:
     if not osp.exists(analyzed_folder):
         os.makedirs(analyzed_folder)
     # Initialize txt file to save coverage numbers
-    f= open(osp.join(analyzed_folder, 'Coverage Results.txt'),"a")
-    f.write(str(datetime.datetime.now()) + '\n')
+    with open(osp.join(analyzed_folder, 'Coverage Results.txt'),"a") as f:
+        f.write(str(datetime.datetime.now()) + '\n')
     
     #loop through wells
     for well_index, well_folder in enumerate(well_folder_list):
@@ -98,8 +97,8 @@ for plate_folder in plate_folder_list:
          # create save folder
         if not osp.exists(osp.join(analyzed_folder, well_folder + '_' + binary_folder)):
             os.makedirs(osp.join(analyzed_folder, well_folder + '_' + binary_folder))  
-        if not os.path.exists(osp.join(analyzed_folder, well_folder + '_' + ff_corr_folder):
-            os.makedirs(osp.join(analyzed_folder, well_folder + '_' + ff_corr_folder) 
+        if not osp.exists(osp.join(analyzed_folder, well_folder + '_' + ff_corr_folder)):
+            os.makedirs(osp.join(analyzed_folder, well_folder + '_' + ff_corr_folder)) 
             
         # Intialize coverage variables
         cell_area = 0
@@ -169,7 +168,6 @@ for plate_folder in plate_folder_list:
         
         # Output and save coverage numbers
         print('The coverage is ', 100*cell_area/(cell_area + background_area), ' %')
-        f = open(osp.join(analyzed_folder, 'Coverage Results.txt'),"a")
-        f.write(plate_folder + '  ' + well_folder + '\n')
-        f.write(('The coverage is '+ str(100*cell_area/(cell_area + background_area)) + ' %') + '\n \n')
-        f.close() 
+        with open(osp.join(analyzed_folder, 'Coverage Results.txt'),"a") as f:
+            f.write(plate_folder + '  ' + well_folder + '\n')
+            f.write(('The coverage is '+ str(100*cell_area/(cell_area + background_area)) + ' %') + '\n \n') 
