@@ -8,37 +8,43 @@ import subprocess
 import typing
 import os
 
+
+#%%
 imageJPath = r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe'
 
-def stitchCoverage(rootDir:str, plateFolderList:typing.List[str], wellFolderList:typing.List[str], gridSizes:typing.List[typing.Tuple[int,int]], folderName:str):
-    file_name = "analyzed_MMStack_1-Pos{xxx}_{yyy}.ome.tif";
-#    outline_pre = "_Outline 2"
-#    binary_pre = "_Binary 2"
+def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,int], outlineFolderName:str, binaryFolderName:str, previousStitchingProcess = None):
+    
+    if previousStitchingProcess is not None:
+        if previousStitchingProcess.poll() is None: #this means the process is still running
+            print("\t\tfinishing imagej stitch process")
+            previousStitchingProcess.wait()
+            print('\t\tdone')
+        stdout, stderr = previousStitchingProcess.communicate()
 
-    for plate in plateFolderList:
-        for i, well in enumerate(wellFolderList):
-            imJCmd = f'''
-            "run('Grid/Collection stitching', 'type=[Filename defined position] order=[Defined by filename] xGridSizes={gridSizes[i][0]} yGridSizes={gridSizes[i][1]}
-            tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=[{os.path.join(rootDir,plate,"Analyzed",well+folderName)}] file_names={file_name}
-            output_textfile_name=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]');
-            run('Enhance Contrast, saturated=0.35');
-            run('Apply LUT');
-            run('8-bit');
-            saveAs("Jpeg", {os.path.join(rootDir,plate,"analyzed",well + folderName + ".jpg")});
-            close();"
-            '''
-#            imJCmd = imJCmd.replace('\n','')
-            imJCmd = imJCmd.replace('\\','\\\\')
-            proc = subprocess.Popen(imageJPath + ' --headless --console -eval ' + imJCmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, creationflags=subprocess.CREATE_NEW_CONSOLE)
-            stdout, stderr = proc.communicate()
+    
+    file_name = "analyzed_MMStack_1-Pos{xxx}_{yyy}.ome.tif";
+
+    imJCmd = f'''
+    "run('Grid/Collection stitching', 'type=[Filename defined position] order=[Defined by filename] grid_size_x={gridSize[0]} grid_size_y={gridSize[1]}
+    tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=[{os.path.join(rootDir,plate,"Analyzed",well+'_'+outlineFolderName)}] file_names={file_name}
+    output_textfile_name=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]');
+    run('Enhance Contrast', 'saturated=0.35');
+    run('Apply LUT');
+    run('8-bit');
+    saveAs('Jpeg', '{os.path.join(rootDir,plate,"Analyzed",well + outlineFolderName + ".jpg")}');
+    close();
+    run('Grid/Collection stitching', 'type=[Filename defined position] order=[Defined by filename] grid_size_x={gridSize[0]} grid_size_y={gridSize[1]}
+    tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=[{os.path.join(rootDir,plate,"Analyzed",well+'_'+binaryFolderName)}] file_names={file_name}
+    output_textfile_name=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]');
+    run('8-bit');
+    saveAs('Jpeg', '{os.path.join(rootDir,plate,"Analyzed",well + binaryFolderName + ".jpg")}');
+    close();"
     '''
-    for plate in plateFolderList:
-        for i, well in enumerate(wellFolderList):
-            run("Grid/Collection stitching", "type=[Filename defined position] order=[Defined by filename         ] xGridSizes="
-               + xGridSizes[i] + " yGridSizes=" + yGridSizes[i] + " tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=["
-               + rootDir + plate + "\\Analyzed\\" + well + binary_pre + "] file_names=" + file_name + 
-               " output_textfile_name=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]")
-            run("8-bit")
-            saveAs("Jpeg", rootDir + plate + "\\analyzed\\" + well + binary_pre + ".jpg")
-            close()
-    '''
+    imJCmd = imJCmd.replace('\n','')
+    imJCmd = imJCmd.replace('\\','\\\\')
+    with open(os.path.join(rootDir,plate, 'Analyzed','stdoutlog.txt'),'a') as f, open(os.path.join(rootDir,plate, 'Analyzed','stderrlog.txt'),'a') as f2:
+        f.write(well+'\n')
+        f2.write(well+'\n')
+        proc = subprocess.Popen(imageJPath + ' --headless --console -eval ' + imJCmd, stdout = f, stderr = f2, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    return proc
+
