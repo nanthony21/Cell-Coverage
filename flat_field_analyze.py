@@ -30,6 +30,7 @@ edge_locations = [('001','001'), ('001','008'), ('001','008'), ('001','001'), ('
 #A number to be added as asuffix to the output files
 analysisNum:int = 1
 dark_count = 624 # camera dark counts
+imageJPath = r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe'
 
 
 
@@ -181,7 +182,5 @@ for plate_folder in plate_folder_list:
             f.write(plate_folder + '  ' + well_folder + '\n')
             f.write(('\t\tThe coverage is '+ str(100*cell_area/(cell_area + background_area)) + ' %') + '\n \n') 
         
-        outlineProcess = imageJStitching.stitchCoverage(root, plate_folder, well_folder, tileSize, outline_folder, binary_folder, outlineProcess)
-#        binaryProcess = imageJStitching.stitchCoverage(root, plate_folder, well_folder, tileSize, binary_folder, binaryProcess)
-outlineout = outlineProcess.communicate()
-#binaryout = binaryProcess.communicate()
+        imjProcess = imageJStitching.stitchCoverage(root, plate_folder, well_folder, tileSize, outline_folder, binary_folder, imageJPath, outlineProcess)
+imjProcess.communicate()

@@ -10,9 +10,9 @@ import os
 
 
 #%%
-imageJPath = r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe'
 
-def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,int], outlineFolderName:str, binaryFolderName:str, previousStitchingProcess = None):
+
+def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,int], outlineFolderName:str, binaryFolderName:str, imageJPath:str, previousStitchingProcess = None):
     
     if previousStitchingProcess is not None:
         if previousStitchingProcess.poll() is None: #this means the process is still running
@@ -40,8 +40,8 @@ def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,i
     saveAs('Jpeg', '{os.path.join(rootDir,plate,"Analyzed",well + binaryFolderName + ".jpg")}');
     close();"
     '''
-    imJCmd = imJCmd.replace('\n','')
-    imJCmd = imJCmd.replace('\\','\\\\')
+    imJCmd = imJCmd.replace('\n','')    #Remove newlines which mess everything up.
+    imJCmd = imJCmd.replace('\\','\\\\') #Escape out our file separators
     with open(os.path.join(rootDir,plate, 'Analyzed','stdoutlog.txt'),'a') as f, open(os.path.join(rootDir,plate, 'Analyzed','stderrlog.txt'),'a') as f2:
         f.write(well+'\n')
         f2.write(well+'\n')
