@@ -46,7 +46,7 @@ analyzed_filename = 'analyzed'
 num_list = ['000', '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']
 
 dark_count = 624 # camera dark counts
-
+gridSizes = [0]*len(well_folder_list) #as we go through we'll build a list of tuples containing the x and y tile sizes.
 # Loop through plates
 for plate_folder in plate_folder_list:
     
@@ -107,7 +107,13 @@ for plate_folder in plate_folder_list:
 
         # loop through cell images        
         file_list = glob(osp.join(root, plate_folder, well_folder, well_folder + file_prefix + '*'))
+        tileSize = [0,0]
+        for ind in range(2):
+            tileSize[ind] = max([int(i.split('Pos')[-1].split('.')[0].split('_')[ind]) for i in file_list]) + 1
+        gridSizes[well_index] = tileSize
+        
         for cell_img_loc in file_list:
+            print(cell_img_loc)
             # load flat field
             ffc_img_loc = osp.join(root, ffc_folder, well_folder, well_folder + cell_img_loc.split(well_folder)[2])
             ffc_img = cv.imread(ffc_img_loc, -1)
