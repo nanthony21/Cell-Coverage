@@ -18,9 +18,9 @@ import imageJStitching
 '''********User Inputs!!*******'''
 
 ## Root folder for experiment
-root = r'G:\10-30-18 Coverage'
+root = r'K:\Coverage\10-23-18_Jane\10-25-18'
 # Folder names for each plate to analyze
-plate_folder_list = ['Dish1']
+plate_folder_list = ['A2780_48Hour_Plate1','A2780_48Hour_Plate2','A2780_48Hour_Plate3']
 # Folder and file names for individual well in plate
 well_folder_list = ['BottomLeft_1', 'BottomMid_1', 'BottomRight_1', 'TopLeft_1', 'TopMid_1', 'TopRight_1']
 # image index for center image for flatfielding
@@ -28,16 +28,15 @@ center_locations = [('000','006'), ('002','005'), ('002','005'), ('002','005'), 
 # image index for edge image for masking
 edge_locations = [('001','001'), ('001','008'), ('001','008'), ('001','001'), ('001','008'), ('001','008')]
 #A number to be added as asuffix to the output files
-analysisNum:int = 1
+analysisNum:int = 3
 dark_count = 624 # camera dark counts
-imageJPath = r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe'
-
-
+imageJPath = r'"C:\Program Files (x86)\Fiji.app\ImageJ-win64.exe"'
+# Flat Field correction folder
+ffc_folder = 'FlatField'
 
 '''**********************'''
 
-# Flat Field correction folder
-ffc_folder = 'FlatField'
+
 # Filename prefix
 file_prefix = '_MMStack_1-Pos'
 # Folders and File prefix for saving analyzed images
@@ -72,15 +71,8 @@ for plate_folder in plate_folder_list:
                                well_folder + file_prefix + center_locations[well_index][0] +
                                '_' + center_locations[well_index][1] + '.ome.tif'), -1)
         ffc_center -= dark_count
-        img_mean = ffc_center.mean()
-
-        cell_center = cv.imread(os.path.join(root, plate_folder, well_folder, 
-                               well_folder + file_prefix + center_locations[well_index][0] +
-                               '_' + center_locations[well_index][1] + '.ome.tif'), -1)
-        cell_center -= dark_count
-        cell_center = ((cell_center * img_mean)/ffc_center).astype(np.uint16)
-        cell_mean = cell_center.mean()
-        cell_std = cell_center.std()
+        ffc_mean = ffc_center.mean()
+        ffc_std = ffc_center.std()
         
         # FFC edge images are used to threshold the area outside the dish
         ffc_edge = cv.imread(osp.join(root, ffc_folder, well_folder,
@@ -94,7 +86,7 @@ for plate_folder in plate_folder_list:
                                well_folder + file_prefix + edge_locations[well_index][0] +
                                '_' + edge_locations[well_index][1] + '.ome.tif'), -1)
         cell_edge -= dark_count
-        cell_edge = ((cell_edge * img_mean)/ffc_edge).astype(np.uint16)
+        cell_edge = ((cell_edge * ffc_mean)/ffc_edge).astype(np.uint16)
         cell_thresh = ca.otsu_1d(cell_edge, wLowOpt = 1)
         
         # create save folder
@@ -128,9 +120,9 @@ for plate_folder in plate_folder_list:
             cell_img -= dark_count
         
             # calculated corrected image
-            corr_img = ((cell_img * img_mean)/ffc_img).astype(np.uint16)
+            corr_img = ((cell_img * ffc_mean)/ffc_img).astype(np.uint16)
             # Data Standardization
-            standard_img = (corr_img-cell_mean)/cell_std
+            standard_img = (corr_img-ffc_mean)/ffc_std
             
             # Determine mask to remove dark regions and regions outside of dish
             ffc_mask = cv.threshold(ffc_img, ffc_thresh, 65535, cv.THRESH_BINARY)[1]
