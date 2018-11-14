@@ -14,6 +14,7 @@ import numpy as np
 import coverage_analysis as ca
 import datetime
 import imageJStitching
+import csv
 
 '''********User Inputs!!*******'''
 
@@ -59,10 +60,8 @@ for plate_folder in plate_folder_list:
     analyzed_folder = osp.join(root, plate_folder, 'Analyzed')
     if not osp.exists(analyzed_folder):
         os.makedirs(analyzed_folder)
-    # Initialize txt file to save coverage numbers
-    with open(osp.join(analyzed_folder, 'Coverage Results.txt'),"a") as f:
-        f.write(str(datetime.datetime.now()) + '\n')
     
+    results = {}
     #loop through wells
     for well_index, well_folder in enumerate(well_folder_list):
         print('\t'+well_folder)
@@ -170,9 +169,13 @@ for plate_folder in plate_folder_list:
         
         # Output and save coverage numbers
         print('The coverage is ', 100*cell_area/(cell_area + background_area), ' %')
-        with open(osp.join(analyzed_folder, 'Coverage Results.txt'),"a") as f:
-            f.write(plate_folder + '  ' + well_folder + '\n')
-            f.write(('\t\tThe coverage is '+ str(100*cell_area/(cell_area + background_area)) + ' %') + '\n \n') 
-        
+        results[well_folder] = 100*cell_area/(cell_area + background_area)
         imjProcess = imageJStitching.stitchCoverage(root, plate_folder, well_folder, tileSize, outline_folder, binary_folder, imageJPath, outlineProcess)
-imjProcess.communicate()
+            # Initialize txt file to save coverage numbers
+    with csv.writer(open(osp.join(analyzed_folder, 'Coverage Percentage Results.txt'),'w')) as f:
+        f.writerow(str(datetime.datetime.now()))
+        f.writerow(plate_folder)     
+        f.writerow(list(results.keys())) #Well folder names
+        f.writerow(list(results.values()))
+        
+imjProcess.communicate() #wait for the last imagej process to finish.
