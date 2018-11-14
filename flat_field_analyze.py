@@ -172,10 +172,11 @@ for plate_folder in plate_folder_list:
         results[well_folder] = 100*cell_area/(cell_area + background_area)
         imjProcess = imageJStitching.stitchCoverage(root, plate_folder, well_folder, tileSize, outline_folder, binary_folder, imageJPath, outlineProcess)
             # Initialize txt file to save coverage numbers
-    with csv.writer(open(osp.join(analyzed_folder, 'Coverage Percentage Results.txt'),'w')) as f:
-        f.writerow(str(datetime.datetime.now()))
-        f.writerow(plate_folder)     
-        f.writerow(list(results.keys())) #Well folder names
-        f.writerow(list(results.values()))
+    with open(osp.join(analyzed_folder, 'Coverage Percentage Results.csv'),'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([str(datetime.datetime.now())])
+        writer.writerow([plate_folder])     
+        writer.writerow(list(results.keys())) #Well folder names
+        writer.writerow(list(results.values()))
         
 imjProcess.communicate() #wait for the last imagej process to finish.
