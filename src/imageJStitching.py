@@ -12,7 +12,7 @@ import os
 #%%
 
 
-def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,int], outlineFolderName:str, binaryFolderName:str, imageJPath:str, previousStitchingProcess = None):
+def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,int], analysisFolder:str, outlineFolderName:str, binaryFolderName:str, imageJPath:str, previousStitchingProcess = None):
     
     if previousStitchingProcess is not None:
         if previousStitchingProcess.poll() is None: #this means the process is still running
@@ -26,23 +26,23 @@ def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,i
 
     imJCmd = f'''
     "run('Grid/Collection stitching', 'type=[Filename defined position] order=[Defined by filename] grid_size_x={gridSize[0]} grid_size_y={gridSize[1]}
-    tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=[{os.path.join(rootDir,plate,"Analyzed",well+'_'+outlineFolderName)}] file_names={file_name}
+    tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=[{os.path.join(rootDir,plate, analysisFolder,well+'_'+outlineFolderName)}] file_names={file_name}
     output_textfile_name=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]');
     run('Enhance Contrast', 'saturated=0.35');
     run('Apply LUT');
     run('8-bit');
-    saveAs('Jpeg', '{os.path.join(rootDir,plate,"Analyzed",well + outlineFolderName + ".jpg")}');
+    saveAs('Jpeg', '{os.path.join(rootDir,plate,analysisFolder,well + outlineFolderName + ".jpg")}');
     close();
     run('Grid/Collection stitching', 'type=[Filename defined position] order=[Defined by filename] grid_size_x={gridSize[0]} grid_size_y={gridSize[1]}
-    tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=[{os.path.join(rootDir,plate,"Analyzed",well+'_'+binaryFolderName)}] file_names={file_name}
+    tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=[{os.path.join(rootDir,plate,analysisFolder,well+'_'+binaryFolderName)}] file_names={file_name}
     output_textfile_name=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]');
     run('8-bit');
-    saveAs('Jpeg', '{os.path.join(rootDir,plate,"Analyzed",well + binaryFolderName + ".jpg")}');
+    saveAs('Jpeg', '{os.path.join(rootDir,plate,analysisFolder,well + binaryFolderName + ".jpg")}');
     close();"
     '''
     imJCmd = imJCmd.replace('\n','')    #Remove newlines which mess everything up.
     imJCmd = imJCmd.replace('\\','\\\\') #Escape out our file separators
-    with open(os.path.join(rootDir,plate, 'Analyzed','stdoutlog.txt'),'a') as f, open(os.path.join(rootDir,plate, 'Analyzed','stderrlog.txt'),'a') as f2:
+    with open(os.path.join(rootDir,plate, analysisFolder,'stdoutlog.txt'),'a') as f, open(os.path.join(rootDir,plate, analysisFolder,'stderrlog.txt'),'a') as f2:
         f.write(well+'\n')
         f2.write(well+'\n')
         proc = subprocess.Popen(imageJPath + ' --headless --console -eval ' + imJCmd, stdout = f, stderr = f2, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
