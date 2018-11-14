@@ -31,9 +31,9 @@ edge_locations = [('001','001'), ('001','008'), ('001','008'), ('001','001'), ('
 #A number to be added as asuffix to the output files
 analysisNum:int = 3
 dark_count = 624 # camera dark counts
-imageJPath = r'"C:\Program Files (x86)\Fiji.app\ImageJ-win64.exe"'
-# Flat Field correction folder
-ffc_folder = 'FlatField'
+imageJPath = r'C:\Users\N2-LiveCell\Documents\fiji-win64\Fiji.app\ImageJ-win64.exe'
+# Flat Field correction path
+ffc_folder = r'E:\SeqExp\FlatField'
 
 '''**********************'''
 
@@ -66,7 +66,7 @@ for plate_folder in plate_folder_list:
     for well_index, well_folder in enumerate(well_folder_list):
         print('\t'+well_folder)
         # Mean value of center image is used for flat field correction
-        ffc_center = cv.imread(osp.join(root, ffc_folder, well_folder, 
+        ffc_center = cv.imread(osp.join(ffc_folder, well_folder, 
                                well_folder + file_prefix + center_locations[well_index][0] +
                                '_' + center_locations[well_index][1] + '.ome.tif'), -1)
         ffc_center -= dark_count
@@ -74,7 +74,7 @@ for plate_folder in plate_folder_list:
         ffc_std = ffc_center.std()
         
         # FFC edge images are used to threshold the area outside the dish
-        ffc_edge = cv.imread(osp.join(root, ffc_folder, well_folder,
+        ffc_edge = cv.imread(osp.join(ffc_folder, well_folder,
                                well_folder + file_prefix + edge_locations[well_index][0] +
                                '_' + edge_locations[well_index][1] + '.ome.tif'), -1)
         ffc_edge -= dark_count
@@ -107,10 +107,10 @@ for plate_folder in plate_folder_list:
         tileSize = [0,0]
         for ind in range(2):
             tileSize[ind] = max([int(i.split('Pos')[-1].split('.')[0].split('_')[ind]) for i in file_list]) + 1
-        
+
         for cell_img_loc in file_list:
             # load flat field
-            ffc_img_loc = osp.join(root, ffc_folder, well_folder, well_folder + cell_img_loc.split(well_folder)[2])
+            ffc_img_loc = osp.join(ffc_folder, well_folder, well_folder + cell_img_loc.split(well_folder)[2])
             ffc_img = cv.imread(ffc_img_loc, -1)
             ffc_img -= dark_count
             
@@ -175,7 +175,8 @@ for plate_folder in plate_folder_list:
     with open(osp.join(analyzed_folder, 'Coverage Percentage Results.csv'),'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow([str(datetime.datetime.now())])
-        writer.writerow([plate_folder])     
+        writer.writerow([plate_folder])
+		writer.writerow(['FlatField Folder: {}'.format(ffc_folder)])
         writer.writerow(list(results.keys())) #Well folder names
         writer.writerow(list(results.values()))
         
