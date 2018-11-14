@@ -9,7 +9,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy import ndimage
 import datetime
-import imageJStitching
+import src.imageJStitching
 import csv
 import os
 import os.path as osp

@@ -6,8 +6,8 @@ Created on Thu Sep 20 16:18:32 2018
 """
 from glob import glob
 from matplotlib import pyplot as plt
-
-from coverage_analysis import analyzeCoverage
+import os
+from src.coverageAnalysisFuncs import analyzeCoverage
 
 
 '''********User Inputs!!*******'''
