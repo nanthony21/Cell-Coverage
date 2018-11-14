@@ -133,7 +133,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             # Output and save coverage numbers
             print('The coverage is ', 100*cell_area/(cell_area + background_area), ' %')
             results[well_folder] = 100*cell_area/(cell_area + background_area)
-            imjProcess = imageJStitching.stitchCoverage(root, plate_folder, well_folder, tileSize, outline_folder, binary_folder, imageJPath, stitchingProcess)
+            imjProcess = src.imageJStitching.stitchCoverage(root, plate_folder, well_folder, tileSize, outline_folder, binary_folder, imageJPath, stitchingProcess)
                 # Initialize txt file to save coverage numbers
         with open(osp.join(analyzed_folder, 'Coverage Percentage Results.csv'),'w', newline='') as f:
             writer = csv.writer(f)
