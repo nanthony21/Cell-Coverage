@@ -41,9 +41,9 @@ ffc_folder = 'FlatField'
 # Filename prefix
 file_prefix = '_MMStack_1-Pos'
 # Folders and File prefix for saving analyzed images
-outline_folder = 'Outline_{}'.format(analysisNum)
-binary_folder = 'Binary_{}'.format(analysisNum)
-ff_corr_folder = 'Corrected_{}'.format(analysisNum)
+outline_folder = 'Outline'
+binary_folder = 'Binary'
+ff_corr_folder = 'Corrected'
 analyzed_filename = 'analyzed'
 
 # Number list used for grid error correction
@@ -57,7 +57,7 @@ outlineProcess = None
 for plate_folder in plate_folder_list:
     print(plate_folder)
     # Create folder for results
-    analyzed_folder = osp.join(root, plate_folder, 'Analyzed')
+    analyzed_folder = osp.join(root, plate_folder, 'Analyzed_{}'.format(analysisNum))
     if not osp.exists(analyzed_folder):
         os.makedirs(analyzed_folder)
     
