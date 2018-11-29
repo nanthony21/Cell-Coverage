@@ -56,6 +56,8 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             ffc_center = cv.imread(osp.join(ffc_folder, well_folder, 
                                    well_folder + file_prefix + center_locations[well_index][0] +
                                    '_' + center_locations[well_index][1] + '.ome.tif'), -1)
+            if ffc_center is None:
+                raise ValueError("The flat field image was not found")
             ffc_center -= dark_count
             ffc_mean = ffc_center.mean()
             ffc_std = ffc_center.std()
