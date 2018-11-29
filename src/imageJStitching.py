@@ -13,7 +13,7 @@ import os
 
 
 def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,int], analysisFolder:str, outlineFolderName:str, binaryFolderName:str, imageJPath:str, previousStitchingProcess = None):
-    
+    '''Used by the coverage analysis code to stich outline images and binarized images.'''
     if previousStitchingProcess is not None:
         if previousStitchingProcess.poll() is None: #this means the process is still running
             print("\t\tfinishing imagej stitch process")
@@ -41,6 +41,7 @@ def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,i
     return proc
 
 def genStitchString(gridSize:typing.Tuple[int,int], overlap:int, firstFileIndices:typing.Tuple[int,int], directory:str, fileName:str):
+    '''Generates a string that can be used to run a stich process in imagej. Feed this string along with other commands to `runImJCmd`'''
     cmd = f'''
     run('Grid/Collection stitching', 'type=[Filename defined position] order=[Defined by filename] grid_size_x={gridSize[0]} grid_size_y={gridSize[1]}
     tile_overlap={overlap} first_file_index_x={firstFileIndices[0]} first_file_index_y={firstFileIndices[1]} directory=[{directory}] file_names={fileName}
@@ -49,6 +50,7 @@ def genStitchString(gridSize:typing.Tuple[int,int], overlap:int, firstFileIndice
     return cmd
     
 def runImJCmd(imJCmd:str, imageJPath:str, logDirectory:str = None):
+    '''Given an imagej macro in string form this will start running the macro and return you a reference to the process. If given a log directory it will save the output to two text files.'''
     imJCmd = '"' + imJCmd + '"' #Wrap the command in quotes so the terminal treats it like a string.
     imJCmd = imJCmd.replace('\n','')    #Remove newlines which mess everything up.
     imJCmd = imJCmd.replace('\\','\\\\') #Escape out our file separators
