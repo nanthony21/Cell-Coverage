@@ -24,27 +24,39 @@ def stitchCoverage(rootDir:str, plate:str, well:str, gridSize:typing.Tuple[int,i
     
     file_name = "analyzed_MMStack_1-Pos{xxx}_{yyy}.ome.tif";
 
-    imJCmd = f'''
-    "run('Grid/Collection stitching', 'type=[Filename defined position] order=[Defined by filename] grid_size_x={gridSize[0]} grid_size_y={gridSize[1]}
-    tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=[{os.path.join(rootDir,plate, analysisFolder,well+'_'+outlineFolderName)}] file_names={file_name}
-    output_textfile_name=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]');
-    run('Enhance Contrast', 'saturated=0.35');
-    run('Apply LUT');
+    outlineString = genStitchString(gridSize, 10, (0, 0), os.path.join(rootDir,plate, analysisFolder,well+'_'+outlineFolderName), file_name)
+    binaryString = genStitchString(gridSize, 10, (0, 0), os.path.join(rootDir,plate, analysisFolder,well+'_'+binaryFolderName), file_name)
+
+    imJCmd = outlineString +  \
+    f'''run('Apply LUT');
     run('8-bit');
     saveAs('Jpeg', '{os.path.join(rootDir,plate,analysisFolder,well + outlineFolderName + ".jpg")}');
-    close();
-    run('Grid/Collection stitching', 'type=[Filename defined position] order=[Defined by filename] grid_size_x={gridSize[0]} grid_size_y={gridSize[1]}
-    tile_overlap=10 first_file_index_x=0 first_file_index_y=0 directory=[{os.path.join(rootDir,plate,analysisFolder,well+'_'+binaryFolderName)}] file_names={file_name}
-    output_textfile_name=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]');
-    run('8-bit');
+    close();''' +   \
+    binaryString +  \
+    f'''run('8-bit');
     saveAs('Jpeg', '{os.path.join(rootDir,plate,analysisFolder,well + binaryFolderName + ".jpg")}');
-    close();"
-    '''
-    imJCmd = imJCmd.replace('\n','')    #Remove newlines which mess everything up.
-    imJCmd = imJCmd.replace('\\','\\\\') #Escape out our file separators
-    with open(os.path.join(rootDir,plate, analysisFolder,'stdoutlog.txt'),'a') as f, open(os.path.join(rootDir,plate, analysisFolder,'stderrlog.txt'),'a') as f2:
-        f.write(well+'\n')
-        f2.write(well+'\n')
-        proc = subprocess.Popen(imageJPath + ' --headless --console -eval ' + imJCmd, stdout = f, stderr = f2, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    close();'''
+
+    proc = runImJCmd(imJCmd, imageJPath, os.path.join(rootDir,plate, analysisFolder))
     return proc
 
+def genStitchString(gridSize:typing.Tuple[int,int], overlap:int, firstFileIndices:typing.Tuple[int,int], directory:str, fileName:str):
+    cmd = f'''
+    run('Grid/Collection stitching', 'type=[Filename defined position] order=[Defined by filename] grid_size_x={gridSize[0]} grid_size_y={gridSize[1]}
+    tile_overlap={overlap} first_file_index_x={firstFileIndices[0]} first_file_index_y={firstFileIndices[1]} directory=[{directory}] file_names={fileName}
+    output_textfile_name=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 computation_parameters=[Save computation time (but use more RAM)] image_output=[Fuse and display]');
+    '''
+    return cmd
+    
+def runImJCmd(imJCmd:str, imageJPath:str, logDirectory:str = None):
+    imJCmd = '"' + imJCmd + '"' #Wrap the command in quotes so the terminal treats it like a string.
+    imJCmd = imJCmd.replace('\n','')    #Remove newlines which mess everything up.
+    imJCmd = imJCmd.replace('\\','\\\\') #Escape out our file separators
+    if not (logDirectory is None):
+        with open(os.path.join(logDirectory,'stdoutlog.txt'),'a') as f, open(os.path.join(logDirectory,'stderrlog.txt'),'a') as f2:
+            f.write('New Process\n')
+            f2.write('New Process\n')
+            proc = subprocess.Popen(imageJPath + ' --headless --console -eval ' + imJCmd, stdout = f, stderr = f2, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    else:
+        proc = subprocess.Popen(imageJPath + ' --headless --console -eval ' + imJCmd, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    return proc
