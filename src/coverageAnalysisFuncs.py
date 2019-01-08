@@ -15,7 +15,7 @@ import os
 import os.path as osp
 from glob import glob
 
-def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations, edge_locations, analysisNum:int, dark_count:int, imageJPath:str, ffc_folder):
+def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations, edge_locations, analysisNum:int, dark_count:int, imageJPath:str, ffc_folder, rotate90=0):
     '''
     This is the main routing to call.
     root: Root folder for experiment
@@ -27,6 +27,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
     dark_count: camera dark counts
     imageJPath: path to imagej.exe
     ffc_folder: Flat Field correction path
+    rotate90: the number of times to rotate the images by 90 degrees.
     '''
     # Filename prefix
     file_prefix = '_MMStack_1-Pos'
@@ -102,10 +103,12 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                 ffc_img_loc = osp.join(ffc_folder, well_folder, well_folder + cell_img_loc.split(well_folder)[2])
                 ffc_img = cv.imread(ffc_img_loc, -1)
                 ffc_img -= dark_count
+                ffc_img = np.rot90(ffc_img, rotate90)
                 
                 # load cell
                 cell_img = cv.imread(cell_img_loc, -1)
                 cell_img -= dark_count
+                cell_img = np.rot90(cell_img, rotate90)
             
                 # calculated corrected image
                 corr_img = ((cell_img * ffc_mean)/ffc_img).astype(np.uint16)
