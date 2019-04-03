@@ -29,6 +29,10 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
     ffc_folder: Flat Field correction path
     rotate90: the number of times to rotate the images by 90 degrees.
     '''
+    #Error checking
+    if not os.path.exists(imageJPath):
+        raise OSError("imageJ could not be found at {}".format(imageJPath))
+    
     # Filename prefix
     file_prefix = '_MMStack_1-Pos'
     # Folders and File prefix for saving analyzed images
@@ -54,26 +58,32 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
         for well_index, well_folder in enumerate(well_folder_list):
             print('\t'+well_folder)
             # Mean value of center image is used for flat field correction
-            ffc_center = cv.imread(osp.join(ffc_folder, well_folder, 
-                                   well_folder + file_prefix + center_locations[well_index][0] +
-                                   '_' + center_locations[well_index][1] + '.ome.tif'), -1)
+            fileName = '*' + file_prefix + center_locations[well_index][0] +'_' + center_locations[well_index][1] + '.ome.tif'
+            ffc_centerPath = glob(osp.join(ffc_folder, well_folder+'*', fileName))[0]
+            ffc_center = cv.imread(ffc_centerPath, -1)
             if ffc_center is None:
-                raise ValueError("The flat field image was not found")
+                raise OSError("The flat field image, {}, was not found".format(ffc_centerPath))
             ffc_center -= dark_count
             ffc_mean = ffc_center.mean()
             ffc_std = ffc_center.std()
             
             # FFC edge images are used to threshold the area outside the dish
-            ffc_edge = cv.imread(osp.join(ffc_folder, well_folder,
-                                   well_folder + file_prefix + edge_locations[well_index][0] +
-                                   '_' + edge_locations[well_index][1] + '.ome.tif'), -1)
+            fileName =  '*' + file_prefix + edge_locations[well_index][0] + '_' + edge_locations[well_index][1] + '.ome.tif'
+            ffc_edgePath = glob(osp.join(ffc_folder, well_folder+'*', fileName))[0]
+            ffc_edge = cv.imread(ffc_edgePath, -1)
+            if ffc_edge is None:
+                raise OSError("The flat field file, {}, was not found".format(ffc_edgePath))
+                
             ffc_edge -= dark_count
             ffc_thresh = otsu_1d(ffc_edge, wLowOpt = 1)    #Overriding the weight for the low distribution improved segmentation when one population is very narrow and the other is very wide
             
             # FF corrected cell edge images are used to threshold the edge effects from the dish
-            cell_edge = cv.imread(osp.join(root, plate_folder, well_folder, 
-                                   well_folder + file_prefix + edge_locations[well_index][0] +
-                                   '_' + edge_locations[well_index][1] + '.ome.tif'), -1)
+            fileName = '*' + file_prefix + edge_locations[well_index][0] + '_' + edge_locations[well_index][1] + '.ome.tif'
+            edgePath = glob(osp.join(root, plate_folder, well_folder+'*', fileName))[0]
+            cell_edge = cv.imread(edgePath, -1)
+            if cell_edge is None:
+                raise OSError("The file, {}, was not found".format(edgePath))
+                
             cell_edge -= dark_count
             cell_edge = ((cell_edge * ffc_mean)/ffc_edge).astype(np.uint16)
             cell_thresh = otsu_1d(cell_edge, wLowOpt = 1)
@@ -93,20 +103,27 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             removed_area = 0
 
             # loop through cell images        
-            file_list = glob(osp.join(root, plate_folder, well_folder, well_folder + file_prefix + '*'))
+            file_list = glob(osp.join(root, plate_folder, well_folder+'*', '*' + file_prefix + '*'))
             tileSize = [0,0]
             for ind in range(2):
                 tileSize[ind] = max([int(i.split('Pos')[-1].split('.')[0].split('_')[ind]) for i in file_list]) + 1
 
             for cell_img_loc in file_list:
                 # load flat field
-                ffc_img_loc = osp.join(ffc_folder, well_folder, well_folder + cell_img_loc.split(well_folder)[2])
+                fileName = osp.join(ffc_folder, well_folder+'*', '*' + cell_img_loc.split(file_prefix)[-1])
+                try: ffc_img_loc = glob(fileName)[0]
+                except IndexError:
+                    raise OSError("a file matching patter {} was not found".format(fileName))
                 ffc_img = cv.imread(ffc_img_loc, -1)
+                if ffc_img is None:
+                    raise OSError("The file, {}, was not found".format(ffc_img_loc))
                 ffc_img -= dark_count
                 ffc_img = np.rot90(ffc_img, rotate90)
                 
                 # load cell
                 cell_img = cv.imread(cell_img_loc, -1)
+                if cell_img is None:
+                    raise OSError("The file, {}, was not found".format(cell_img_loc))
                 cell_img -= dark_count
                 cell_img = np.rot90(cell_img, rotate90)
             
@@ -281,10 +298,6 @@ if __name__ == '__main__':
     file12f = r'K:\Coverage\10-24-18_Greta\FlatField_48Hour\TopLeft_1\TopLeft_1_MMStack_1-Pos007_005.ome.tif'
     file_list = [file1, file6, file8, file10, file11, file12]
     ff_list = [file1f, file6f, file8f, file10f, file11f, file12f]
-#    file_list = [file5]
-#    ff_list = [file5f]
-#    plt.imshow(cv.imread(file, -1))
-#    file_list = [file7]
     
     for ind in range(len(file_list)):
         img = cv.imread(file_list[ind], -1)
