@@ -45,7 +45,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
     num_list = ['000', '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']
 
     stitchingProcess = None
-    for plate_folder in plate_folder_list:      # Loop through plates
+    for plate_folder in plate_folder_list:  # Loop through plates
         print(plate_folder)
         # Create folder for results
         analyzed_folder = osp.join(root, plate_folder, 'Analyzed_{}'.format(analysisNum))
@@ -53,7 +53,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             os.makedirs(analyzed_folder)
         
         results = {}
-        for well_index, well_folder in enumerate(well_folder_list):    #loop through wells
+        for well_index, well_folder in enumerate(well_folder_list): #loop through wells
             print('\t'+well_folder)
             # Mean value of center image is used for flat field correction
             fileName = '*' + file_prefix + center_locations[well_index][0] +'_' + center_locations[well_index][1] + '.ome.tif'
@@ -73,7 +73,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                 raise OSError("The flat field file, {}, was not found".format(ffc_edgePath))
                 
             ffc_edge -= dark_count
-            ffc_thresh = otsu_1d(ffc_edge, wLowOpt = 1)    #Overriding the weight for the low distribution improved segmentation when one population is very narrow and the other is very wide
+            ffc_thresh = otsu_1d(ffc_edge, wLowOpt=1)    #Overriding the weight for the low distribution improved segmentation when one population is very narrow and the other is very wide
             
             # FF corrected cell edge images are used to threshold the edge effects from the dish
             fileName = '*' + file_prefix + edge_locations[well_index][0] + '_' + edge_locations[well_index][1] + '.ome.tif'
@@ -84,7 +84,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                 
             cell_edge -= dark_count
             cell_edge = ((cell_edge * ffc_mean)/ffc_edge).astype(np.uint16)
-            cell_thresh = otsu_1d(cell_edge, wLowOpt = 1)
+            cell_thresh = otsu_1d(cell_edge, wLowOpt=1)
             
             # create save folder
             if not osp.exists(osp.join(analyzed_folder, well_folder + '_' + outline_folder)):
@@ -124,17 +124,9 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                     raise OSError("The file, {}, was not found".format(cell_img_loc))
                 cell_img -= dark_count
                 cell_img = np.rot90(cell_img, rotate90)
-            
-                # calculated corrected image
-                corr_img = ((cell_img * ffc_mean)/ffc_img).astype(np.uint16)
-                # Data Standardization
-                standard_img = (corr_img-ffc_mean)/ffc_std
-                
-                # Determine mask to remove dark regions and regions outside of dish
-                ffc_mask = cv.threshold(ffc_img, ffc_thresh, 65535, cv.THRESH_BINARY)[1]
-                corr_mask = cv.threshold(cell_img, cell_thresh, 65535, cv.THRESH_BINARY)[1]
-                background_mask = ffc_mask * corr_mask
-                
+
+
+                background_mask, standard_img = standardizeImg(cell_img, ffc_img, cell_thresh, ffc_thresh, ffc_mean, ffc_std)
                 # Segment out cells from background
                 outline, morph_img = analyze_img(standard_img, background_mask)
                 
@@ -145,7 +137,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                 
                 # Write images to file
                 cv.imwrite(osp.join(analyzed_folder, well_folder + '_' + binary_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), morph_img)
-                cv.imwrite(osp.join(analyzed_folder,well_folder + '_' + ff_corr_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
+                cv.imwrite(osp.join(analyzed_folder, well_folder + '_' + ff_corr_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
                 # Add segmentation outline to corrected image
                 corr_img[outline.astype(bool)] = 0
                 cv.imwrite(osp.join(analyzed_folder, well_folder + '_' + outline_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
@@ -160,7 +152,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             writer.writerow([str(datetime.datetime.now())])
             writer.writerow([plate_folder])
             writer.writerow(['FlatField Folder: {}'.format(ffc_folder)])
-            writer.writerow(list(results.keys())) #Well folder names
+            writer.writerow(list(results.keys()))  # Well folder names
             writer.writerow(list(results.values()))
             
     imjProcess.communicate() #wait for the last imagej process to finish.
@@ -170,13 +162,9 @@ def remove_component(img, min_size):
     '''remove connected components smaller than min_size'''
     #find all your connected components
     nb_components, output, stats, centroids = cv.connectedComponentsWithStats(img.astype(np.uint8), connectivity=8)
-    
-    #connectedComponentswithStats yields every separated component with information on each of them, such as size
-    sizes = stats[:, -1]
+    sizes = stats[:, -1]  # connectedComponentswithStats yields every separated component with information on each of them, such as size
+    img2 = np.zeros((output.shape)) # output_img
 
-    #output_img
-    img2 = np.zeros((output.shape))
-    
     #for every component in the image, you keep it only if it's above min_size. We start at 1 because 0 is the backgroud which we don't care about.
     for i in range(1, nb_components):
         if sizes[i] >= min_size:
@@ -200,8 +188,8 @@ def dist_mask(dist):
     return output_mask
 
 def var_map(img, dist):
-    ''' var_map creates a map of the spatial variance 
-    in a neighborhood of size dist at pixels in img'''
+    """ var_map creates a map of the spatial variance
+    in a neighborhood of size dist at pixels in img"""
     img = img.astype(np.float32)
     mask = dist_mask(dist)
     mask = mask / mask.sum() #Normalize the mask
@@ -210,9 +198,8 @@ def var_map(img, dist):
     return (sqrMean - mean*mean)
 
 def otsu_1d(img, wLowOpt = None, wHighOpt = None):
-    ''' calculates the threshold for binarization using Otsu's method.
-    The weights for the low and high distribution can be overridden using the optional arguments.
-    '''
+    """ calculates the threshold for binarization using Otsu's method.
+    The weights for the low and high distribution can be overridden using the optional arguments."""
     flat_img = img.flatten()
     var_b_max = 0
     bin_index = 0
@@ -236,7 +223,7 @@ def otsu_1d(img, wLowOpt = None, wHighOpt = None):
 
 
 # Segment out cells from background
-def analyze_img(img, *mask):
+def analyze_img(img: np.ndarray, *mask):
     if len(mask) == 0:
         mask = np.ones(img.shape).astype(np.uint16)
     else:
@@ -254,6 +241,19 @@ def analyze_img(img, *mask):
     morph_img = cv.dilate(morph_img, kernel_dil)
     outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))    #binary outline for overlay
     return outline, morph_img
+
+def standardizeImg(image: np.ndarray, flatField: np.ndarray, imageThreshold: float, flatFieldThreshold: float, meanIntensity: float, stdIntensity: float):
+    # calculated corrected image
+    corr_img = ((image * meanIntensity) / flatField).astype(np.uint16)
+    # Data Standardization
+    standardImg = (corr_img - meanIntensity) / stdIntensity
+
+    # Determine mask to remove dark regions and regions outside of dish
+    ffc_mask = cv.threshold(flatField, flatFieldThreshold, 65535, cv.THRESH_BINARY)[1]
+    corr_mask = cv.threshold(image, imageThreshold, 65535, cv.THRESH_BINARY)[1]
+    backgroundMask = ffc_mask * corr_mask
+
+    return backgroundMask, standardImg
 
     # Main Code
 if __name__ == '__main__':
