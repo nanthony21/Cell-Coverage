@@ -45,8 +45,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
     num_list = ['000', '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']
 
     stitchingProcess = None
-      # Loop through plates
-    for plate_folder in plate_folder_list:
+    for plate_folder in plate_folder_list:      # Loop through plates
         print(plate_folder)
         # Create folder for results
         analyzed_folder = osp.join(root, plate_folder, 'Analyzed_{}'.format(analysisNum))
@@ -54,8 +53,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             os.makedirs(analyzed_folder)
         
         results = {}
-        #loop through wells
-        for well_index, well_folder in enumerate(well_folder_list):
+        for well_index, well_folder in enumerate(well_folder_list):    #loop through wells
             print('\t'+well_folder)
             # Mean value of center image is used for flat field correction
             fileName = '*' + file_prefix + center_locations[well_index][0] +'_' + center_locations[well_index][1] + '.ome.tif'
@@ -138,7 +136,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                 background_mask = ffc_mask * corr_mask
                 
                 # Segment out cells from background
-                [outline, morph_img] = analyze_img(standard_img, background_mask)
+                outline, morph_img = analyze_img(standard_img, background_mask)
                 
                 # Keep track of areas to calculate coverage
                 removed_area += np.count_nonzero(morph_img == 2)
@@ -243,35 +241,19 @@ def analyze_img(img, *mask):
         mask = np.ones(img.shape).astype(np.uint16)
     else:
         mask = mask[0]
-
-#    # Data Standardization
-#    img = (img-img.mean())/img.std()
-
-    # calculate Variance Map
-    var_img = var_map(img, 2)
-    
-    # Use Otsu to calculate binary threshold and binarize
-    bin_var_img = cv.threshold(var_img, 0.015, 65535, cv.THRESH_BINARY)[1]
-
-    # flip background and foreground
-    bin_var_img[bin_var_img == 0] = 1
+#    img = (img-img.mean())/img.std() # Data Standardization
+    var_img = var_map(img, 2)    # calculate Variance Map
+    bin_var_img = cv.threshold(var_img, 0.015, 65535, cv.THRESH_BINARY)[1]     # Use Otsu to calculate binary threshold and binarize
+    bin_var_img[bin_var_img == 0] = 1    # flip background and foreground
     bin_var_img[bin_var_img == 65535] = 0
     bin_var_img[~mask.astype(bool)] = 2
-
-    # Set kernels for morphological operations and CC
-    kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
+    kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))    # Set kernels for morphological operations and CC
     min_size = 100
-
-    # Erode->Remove small features->dilate
-    morph_img = remove_component(bin_var_img, min_size)
-
+    morph_img = remove_component(bin_var_img, min_size)    # Erode->Remove small features->dilate
     morph_img[~mask.astype(bool)] = 2
     morph_img = cv.dilate(morph_img, kernel_dil)
-
-    #binary outline for overlay
-    outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))
-    
-    return [outline, morph_img]
+    outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))    #binary outline for overlay
+    return outline, morph_img
 
     # Main Code
 if __name__ == '__main__':
@@ -312,31 +294,3 @@ if __name__ == '__main__':
         cv.imwrite(r'C:\Users\Scott\Documents\cell-coverage\presentation images\example'+str(ind)+'.tif', img)
         plt.subplot(1, 2, 2)
         plt.imshow(img, cmap='gray')
-        
-    
-    
-#    corr_img = img
-#    corr_img[outline.astype(bool)] = 0
-#    my_cmap = cm.Purples
-#    my_cmap.set_under('k', alpha=0)
-
-#    n, hist_bins, patches = plt.hist(var_img.flatten(),bins=400,
-#                                     density=True)
-    #
-    #n, hist_bins, patches = plt.hist(blur_var1.flatten(), bins=400)
-#    plt.figure()
-#    plt.imshow(corr_img, cmap='gray')
-    
-    
-    # display images
-#    r = [0, 256, 512, 768, 1024]
-#    for x_r in range(4):
-#        for y_r in range(4):
-#            fig = plt.figure()
-#            plt.subplot(1, 2, 1)
-#            plt.imshow(img[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap='gray')
-#            plt.subplot(1, 2, 2)
-#            plt.imshow(img[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap='gray')
-#            plt.imshow(outline[r[x_r]:r[x_r+1]+1, r[y_r]:r[y_r+1]+1], cmap=my_cmap, clim=[0.9, 1])
-#            while plt.fignum_exists(fig.number):
-#                fig.canvas.flush_events()
