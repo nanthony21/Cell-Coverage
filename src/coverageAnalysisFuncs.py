@@ -55,33 +55,35 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
         results = {}
         for well_index, well_folder in enumerate(well_folder_list): #loop through wells
             print('\t'+well_folder)
+
             # Mean value of center image is used for flat field correction
-            fileName = '*' + file_prefix + center_locations[well_index][0] +'_' + center_locations[well_index][1] + '.ome.tif'
+            fileName = '*' + file_prefix + center_locations[well_index][0] + '_' + center_locations[well_index][1] + '.ome.tif'
             ffc_centerPath = glob(osp.join(ffc_folder, well_folder+'*', fileName))[0]
             ffc_center = cv.imread(ffc_centerPath, -1)
             if ffc_center is None:
                 raise OSError("The flat field image, {}, was not found".format(ffc_centerPath))
-            ffc_center -= dark_count
-            ffc_mean = ffc_center.mean()
-            ffc_std = ffc_center.std()
-            
+
             # FFC edge images are used to threshold the area outside the dish
             fileName =  '*' + file_prefix + edge_locations[well_index][0] + '_' + edge_locations[well_index][1] + '.ome.tif'
             ffc_edgePath = glob(osp.join(ffc_folder, well_folder+'*', fileName))[0]
             ffc_edge = cv.imread(ffc_edgePath, -1)
             if ffc_edge is None:
                 raise OSError("The flat field file, {}, was not found".format(ffc_edgePath))
-                
-            ffc_edge -= dark_count
-            ffc_thresh = otsu_1d(ffc_edge, wLowOpt=1)    #Overriding the weight for the low distribution improved segmentation when one population is very narrow and the other is very wide
-            
+
             # FF corrected cell edge images are used to threshold the edge effects from the dish
             fileName = '*' + file_prefix + edge_locations[well_index][0] + '_' + edge_locations[well_index][1] + '.ome.tif'
             edgePath = glob(osp.join(root, plate_folder, well_folder+'*', fileName))[0]
             cell_edge = cv.imread(edgePath, -1)
             if cell_edge is None:
                 raise OSError("The file, {}, was not found".format(edgePath))
+
+            ffc_center -= dark_count
+            ffc_mean = ffc_center.mean()
+            ffc_std = ffc_center.std()
                 
+            ffc_edge -= dark_count
+            ffc_thresh = otsu_1d(ffc_edge, wLowOpt=1)    #Overriding the weight for the low distribution improved segmentation when one population is very narrow and the other is very wide
+
             cell_edge -= dark_count
             cell_edge = ((cell_edge * ffc_mean)/ffc_edge).astype(np.uint16)
             cell_thresh = otsu_1d(cell_edge, wLowOpt=1)
@@ -96,13 +98,11 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                 os.makedirs(osp.join(analyzed_folder, well_folder + '_' + ff_corr_folder)) 
                 
             # Intialize coverage variables
-            cell_area = 0
-            background_area = 0
-            removed_area = 0
+            cell_area = background_area = removed_area = 0
 
             # loop through cell images        
             file_list = glob(osp.join(root, plate_folder, well_folder+'*', '*' + file_prefix + '*'))
-            tileSize = [0,0]
+            tileSize = [0, 0]
             for ind in range(2):
                 tileSize[ind] = max([int(i.split('Pos')[-1].split('.')[0].split('_')[ind]) for i in file_list]) + 1
 
@@ -111,7 +111,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                 fileName = osp.join(ffc_folder, well_folder+'*', '*' + cell_img_loc.split(file_prefix)[-1])
                 try: ffc_img_loc = glob(fileName)[0]
                 except IndexError:
-                    raise OSError("a file matching patter {} was not found".format(fileName))
+                    raise OSError("a file matching pattern {} was not found".format(fileName))
                 ffc_img = cv.imread(ffc_img_loc, -1)
                 if ffc_img is None:
                     raise OSError("The file, {}, was not found".format(ffc_img_loc))
@@ -125,8 +125,8 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                 cell_img -= dark_count
                 cell_img = np.rot90(cell_img, rotate90)
 
-
-                background_mask, standard_img = standardizeImg(cell_img, ffc_img, cell_thresh, ffc_thresh, ffc_mean, ffc_std)
+                standard_img = standardizeImage(cell_img, ffc_img, ffc_mean, ffc_std)
+                background_mask = calculateBackground(cell_img, ffc_img, cell_thresh, ffc_thresh)
                 # Segment out cells from background
                 outline, morph_img = analyze_img(standard_img, background_mask)
                 
@@ -242,18 +242,20 @@ def analyze_img(img: np.ndarray, *mask):
     outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))    #binary outline for overlay
     return outline, morph_img
 
-def standardizeImg(image: np.ndarray, flatField: np.ndarray, imageThreshold: float, flatFieldThreshold: float, meanIntensity: float, stdIntensity: float):
-    # calculated corrected image
-    corr_img = ((image * meanIntensity) / flatField).astype(np.uint16)
-    # Data Standardization
-    standardImg = (corr_img - meanIntensity) / stdIntensity
-
+def calculateBackground(image: np.ndarray, flatField: np.ndarray, imageThreshold: float, flatFieldThreshold: float):
     # Determine mask to remove dark regions and regions outside of dish
     ffc_mask = cv.threshold(flatField, flatFieldThreshold, 65535, cv.THRESH_BINARY)[1]
     corr_mask = cv.threshold(image, imageThreshold, 65535, cv.THRESH_BINARY)[1]
     backgroundMask = ffc_mask * corr_mask
+    return backgroundMask
 
-    return backgroundMask, standardImg
+
+def standardizeImage(image: np.ndarray, flatField: np.ndarray, meanIntensity: float, stdIntensity: float):
+    # calculated corrected image
+    corr_img = ((image * meanIntensity) / flatField).astype(np.uint16)
+    # Data Standardization
+    standardImg = (corr_img - meanIntensity) / stdIntensity
+    return standardImg
 
     # Main Code
 if __name__ == '__main__':
