@@ -83,12 +83,12 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             ffc_std = ffc_center.std()
                 
             ffc_edge -= dark_count
-            ffc_thresh = otsu_1d(ffc_edge, wLowOpt=1)    #Overriding the weight for the low distribution improved segmentation when one population is very narrow and the other is very wide
+            ffc_thresh, binary = cv.threshold(ffc_edge, 0, 1, cv.THRESH_BINARY | cv.THRESH_OTSU)
 
             cell_edge -= dark_count
             cell_edge = ((cell_edge * ffc_mean)/ffc_edge).astype(np.uint16)
-            cell_thresh = otsu_1d(cell_edge, wLowOpt=1)
-            
+            cell_thresh, binary = cv.threshold(cell_edge, 0, 1, cv.THRESH_BINARY | cv.THRESH_OTSU)
+
             # create save folder
             if not osp.exists(osp.join(analyzed_folder, well_folder + '_' + outline_folder)):
                 os.makedirs(osp.join(analyzed_folder, well_folder + '_' + outline_folder))
@@ -191,30 +191,6 @@ def var_map(img, dist):
     mean = cv.filter2D(img, cv.CV_32F, mask)
     sqrMean = cv.filter2D(img*img, cv.CV_32F, mask)
     return (sqrMean - mean*mean)  # Variance is the mean of the square minus the square of the mean.
-
-def otsu_1d(img, wLowOpt = None, wHighOpt = None):
-    """ calculates the threshold for binarization using Otsu's method.
-    The weights for the low and high distribution can be overridden using the optional arguments."""
-    flat_img = img.flatten()
-    var_b_max = 0
-    bin_index = 0
-    
-    num_bins = 100  # Can reduce num_bins to speed code, but reduce accuracy of threshold
-    img_min = np.percentile(flat_img, 1)
-    img_max = np.percentile(flat_img, 99)
-    for bin_val in np.linspace(img_min, img_max, num_bins, endpoint = False):
-        # segment data based on bin
-        gLow = flat_img[flat_img <= bin_val]
-        gHigh = flat_img[flat_img > bin_val]
-        
-        # determine weights of each bin
-        wLow = gLow.size/flat_img.size if (wLowOpt is None) else wLowOpt
-        wHigh = gHigh.size/flat_img.size if (wHighOpt is None) else wLowOpt
-        
-        # maximize inter-class variance
-        var_b = wLow * wHigh * (gLow.mean() - gHigh.mean())**2
-        [var_b_max, bin_index] = [var_b, bin_val] if var_b > var_b_max else [var_b_max, bin_index]
-    return bin_index
 
 
 # Segment out cells from background
