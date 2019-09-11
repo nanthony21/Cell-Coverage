@@ -14,6 +14,7 @@ import csv
 import os
 import os.path as osp
 from glob import glob
+from src.imageJStitching import ImageJStitcher
 
 def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations, edge_locations, analysisNum:int, dark_count:int, imageJPath:str, ffc_folder, rotate90=0):
     '''
@@ -30,8 +31,8 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
     rotate90: the number of times to rotate the images by 90 degrees.
     '''
     #Error checking
-    if not os.path.exists(imageJPath):
-        raise OSError("imageJ could not be found at {}".format(imageJPath))
+    stitcher = ImageJStitcher(imageJPath)
+
     
     # Filename prefix
     file_prefix = '_MMStack_1-Pos'
@@ -102,14 +103,14 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
 
             # loop through cell images        
             file_list = glob(osp.join(root, plate_folder, well_folder+'*', '*' + file_prefix + '*'))
-            tileSize = [0, 0]
-            for ind in range(2):
-                tileSize[ind] = max([int(i.split('Pos')[-1].split('.')[0].split('_')[ind]) for i in file_list]) + 1
+            tileSize = (max([int(i.split('Pos')[-1].split('.')[0].split('_')[0]) for i in file_list]) + 1,
+                        max([int(i.split('Pos')[-1].split('.')[0].split('_')[1]) for i in file_list]) + 1)
 
             for cell_img_loc in file_list:
                 # load flat field
                 fileName = osp.join(ffc_folder, well_folder+'*', '*' + cell_img_loc.split(file_prefix)[-1])
-                try: ffc_img_loc = glob(fileName)[0]
+                try:
+                    ffc_img_loc = glob(fileName)[0]
                 except IndexError:
                     raise OSError("a file matching pattern {} was not found".format(fileName))
                 ffc_img = cv.imread(ffc_img_loc, -1)
@@ -145,7 +146,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             # Output and save coverage numbers
             print('The coverage is ', 100*cell_area/(cell_area + background_area), ' %')
             results[well_folder] = 100*cell_area/(cell_area + background_area)
-            imjProcess = src.imageJStitching.stitchCoverage(root, plate_folder, well_folder, tileSize, analyzed_folder, outline_folder, binary_folder, imageJPath, stitchingProcess)
+            imjProcess = stitcher.stitchCoverage(root, plate_folder, well_folder, tileSize, analyzed_folder, outline_folder, binary_folder, stitchingProcess)
                 # Initialize txt file to save coverage numbers
         with open(osp.join(analyzed_folder, 'Coverage Percentage Results.csv'),'w', newline='') as f:
             writer = csv.writer(f)
@@ -155,7 +156,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             writer.writerow(list(results.keys()))  # Well folder names
             writer.writerow(list(results.values()))
             
-    imjProcess.communicate() #wait for the last imagej process to finish.
+    imjProcess.communicate()  # wait for the last imagej process to finish.
 
 
 def remove_component(img, min_size):
@@ -164,27 +165,21 @@ def remove_component(img, min_size):
     nb_components, output, stats, centroids = cv.connectedComponentsWithStats(img.astype(np.uint8), connectivity=8)
     sizes = stats[:, -1]  # connectedComponentswithStats yields every separated component with information on each of them, such as size
     img2 = np.zeros((output.shape)) # output_img
-
-    #for every component in the image, you keep it only if it's above min_size. We start at 1 because 0 is the backgroud which we don't care about.
-    for i in range(1, nb_components):
+    for i in range(1, nb_components):  # for every component in the image, you keep it only if it's above min_size. We start at 1 because 0 is the backgroud which we don't care about.
         if sizes[i] >= min_size:
             img2[output == i] = 1
-            
     return img2.astype(img.dtype)
      
     
 def dist_mask(dist):
     ''' Create a circular mask with a radius of `dist`.''' 
-    # Initialize output make
-    output_mask = np.ones([dist*2 + 1, dist*2 + 1], dtype=np.uint16)
-    
+    output_mask = np.ones([dist*2 + 1, dist*2 + 1], dtype=np.uint16)  # Initialize output mask
     #Create distance map
     output_mask[dist, dist] = 0
     dist_map = ndimage.distance_transform_edt(output_mask)
-    
     # Turn distance map into binary mask
-    output_mask[dist_map>dist] = 0
-    output_mask[dist_map<=dist] = 1
+    output_mask[dist_map > dist] = 0
+    output_mask[dist_map <= dist] = 1
     return output_mask
 
 def var_map(img, dist):
@@ -192,10 +187,10 @@ def var_map(img, dist):
     in a neighborhood of size dist at pixels in img"""
     img = img.astype(np.float32)
     mask = dist_mask(dist)
-    mask = mask / mask.sum() #Normalize the mask
+    mask = mask / mask.sum() #Normalize the mask to 1
     mean = cv.filter2D(img, cv.CV_32F, mask)
     sqrMean = cv.filter2D(img*img, cv.CV_32F, mask)
-    return (sqrMean - mean*mean)
+    return (sqrMean - mean*mean)  # Variance is the mean of the square minus the square of the mean.
 
 def otsu_1d(img, wLowOpt = None, wHighOpt = None):
     """ calculates the threshold for binarization using Otsu's method.
@@ -204,9 +199,9 @@ def otsu_1d(img, wLowOpt = None, wHighOpt = None):
     var_b_max = 0
     bin_index = 0
     
-    num_bins = 100 # Can reduce num_bins to speed code, but reduce accuracy of threshold
-    img_min = np.percentile(flat_img,1)
-    img_max = np.percentile(flat_img,99)
+    num_bins = 100  # Can reduce num_bins to speed code, but reduce accuracy of threshold
+    img_min = np.percentile(flat_img, 1)
+    img_max = np.percentile(flat_img, 99)
     for bin_val in np.linspace(img_min, img_max, num_bins, endpoint = False):
         # segment data based on bin
         gLow = flat_img[flat_img <= bin_val]
