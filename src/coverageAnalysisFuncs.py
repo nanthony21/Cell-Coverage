@@ -2,14 +2,13 @@
 """
 Created on Thu Sep 20 11:42:05 2018
 
-@author: Scott
+@author: Scott Gladstein and Nick Anthony
 """
 import cv2 as cv
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy import ndimage
 import datetime
-import src.imageJStitching
 import csv
 import os
 import os.path as osp
@@ -159,48 +158,49 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
     imjProcess.communicate()  # wait for the last imagej process to finish.
 
 
-def remove_component(img, min_size):
-    '''remove connected components smaller than min_size'''
-    #find all your connected components
-    nb_components, output, stats, centroids = cv.connectedComponentsWithStats(img.astype(np.uint8), connectivity=8)
-    sizes = stats[:, -1]  # connectedComponentswithStats yields every separated component with information on each of them, such as size
-    img2 = np.zeros((output.shape)) # output_img
-    for i in range(1, nb_components):  # for every component in the image, you keep it only if it's above min_size. We start at 1 because 0 is the backgroud which we don't care about.
-        if sizes[i] >= min_size:
-            img2[output == i] = 1
-    return img2.astype(img.dtype)
-     
-    
-def dist_mask(dist):
-    ''' Create a circular mask with a radius of `dist`.''' 
-    output_mask = np.ones([dist*2 + 1, dist*2 + 1], dtype=np.uint16)  # Initialize output mask
-    #Create distance map
-    output_mask[dist, dist] = 0
-    dist_map = ndimage.distance_transform_edt(output_mask)
-    # Turn distance map into binary mask
-    output_mask[dist_map > dist] = 0
-    output_mask[dist_map <= dist] = 1
-    return output_mask
-
-def var_map(img, dist):
-    """ var_map creates a map of the spatial variance
-    in a neighborhood of size dist at pixels in img"""
-    img = img.astype(np.float32)
-    mask = dist_mask(dist)
-    mask = mask / mask.sum() #Normalize the mask to 1
-    mean = cv.filter2D(img, cv.CV_32F, mask)
-    sqrMean = cv.filter2D(img*img, cv.CV_32F, mask)
-    return (sqrMean - mean*mean)  # Variance is the mean of the square minus the square of the mean.
-
-
-# Segment out cells from background
 def analyze_img(img: np.ndarray, *mask):
+    """Segment out cells from background"""
+
+    def remove_component(img, min_size):
+        '''remove connected components smaller than min_size'''
+        # find all your connected components
+        nb_components, output, stats, centroids = cv.connectedComponentsWithStats(img.astype(np.uint8), connectivity=8)
+        sizes = stats[:,
+                -1]  # connectedComponentswithStats yields every separated component with information on each of them, such as size
+        img2 = np.zeros((output.shape))  # output_img
+        for i in range(1,
+                       nb_components):  # for every component in the image, you keep it only if it's above min_size. We start at 1 because 0 is the backgroud which we don't care about.
+            if sizes[i] >= min_size:
+                img2[output == i] = 1
+        return img2.astype(img.dtype)
+
+    def calculateLocalVariance(img, dist):
+        """Creates a map of the spatial variance
+        in a neighborhood of radius `dist` pixels in img"""
+
+        def circularMask(radius):
+            """Create a circular boolean mask with a radius of `dist`."""
+            output_mask = np.ones([radius * 2 + 1, radius * 2 + 1], dtype=np.uint16)  # Initialize output mask
+            # Create distance map
+            output_mask[radius, radius] = 0
+            dist_map = ndimage.distance_transform_edt(output_mask)
+            # Turn distance map into binary mask
+            output_mask[dist_map > radius] = 0
+            output_mask[dist_map <= radius] = 1
+            return output_mask
+
+        img = img.astype(np.float32)
+        mask = circularMask(dist)
+        mask = mask / mask.sum()  # Normalize the mask to 1
+        mean = cv.filter2D(img, cv.CV_32F, mask)
+        sqrMean = cv.filter2D(img * img, cv.CV_32F, mask)
+        return (sqrMean - mean * mean)  # Variance is the mean of the square minus the square of the mean.
+
     if len(mask) == 0:
         mask = np.ones(img.shape).astype(np.uint16)
     else:
         mask = mask[0]
-#    img = (img-img.mean())/img.std() # Data Standardization
-    var_img = var_map(img, 2)    # calculate Variance Map
+    var_img = calculateLocalVariance(img, 2)    # calculate Variance Map
     bin_var_img = cv.threshold(var_img, 0.015, 65535, cv.THRESH_BINARY)[1]     # Use Otsu to calculate binary threshold and binarize
     bin_var_img[bin_var_img == 0] = 1    # flip background and foreground
     bin_var_img[bin_var_img == 65535] = 0
@@ -213,6 +213,7 @@ def analyze_img(img: np.ndarray, *mask):
     outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))    #binary outline for overlay
     return outline, morph_img
 
+
 def calculateBackground(image: np.ndarray, flatField: np.ndarray, imageThreshold: float, flatFieldThreshold: float):
     # Determine mask to remove dark regions and regions outside of dish
     ffc_mask = cv.threshold(flatField, flatFieldThreshold, 65535, cv.THRESH_BINARY)[1]
@@ -222,10 +223,8 @@ def calculateBackground(image: np.ndarray, flatField: np.ndarray, imageThreshold
 
 
 def standardizeImage(image: np.ndarray, flatField: np.ndarray, meanIntensity: float, stdIntensity: float):
-    # calculated corrected image
-    corr_img = ((image * meanIntensity) / flatField).astype(np.uint16)
-    # Data Standardization
-    standardImg = (corr_img - meanIntensity) / stdIntensity
+    corr_img = ((image * meanIntensity) / flatField).astype(np.uint16)  # calculated corrected image
+    standardImg = (corr_img - meanIntensity) / stdIntensity  # Data Standardization
     return standardImg
 
     # Main Code

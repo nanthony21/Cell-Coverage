@@ -2,7 +2,7 @@
 """
 Created on Thu Sep 20 16:18:32 2018
 
-@author: Scott
+@author: Nick Anthony
 """
 from glob import glob
 from matplotlib import pyplot as plt
