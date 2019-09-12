@@ -4,6 +4,8 @@ Created on Thu Sep 20 11:42:05 2018
 
 @author: Scott Gladstein and Nick Anthony
 """
+from typing import List, Tuple
+
 import cv2 as cv
 import numpy as np
 from matplotlib import pyplot as plt
@@ -14,6 +16,126 @@ import os
 import os.path as osp
 from glob import glob
 from src.imageJStitching import ImageJStitcher
+
+class Names:
+    """Names that are used in filenaming."""
+    prefix = '_MMStack_1-Pos'
+    # Folders and File prefix for saving analyzed images
+    outline = 'Outline'
+    binary = 'Binary'
+    corrected = 'Corrected'
+    analyzed = 'analyzed'
+
+class SingleWellCoverageAnalyzer:
+    def __init__(self, wellRoot: str, ffcRoot: str, centerImgLocation: Tuple[int, int], edgeImgLocation: Tuple[int, int], darkCount: int,
+                 stitcher: ImageJStitcher, rotate90: int = 0):
+        """root: Root folder for experiment."""
+        self.root = wellRoot
+        self.ffcRoot = ffcRoot
+        self.center = centerImgLocation
+        self.edge = edgeImgLocation
+        self.darkCount = darkCount
+        self.stitcher = stitcher
+        self.rot = rotate90
+
+    def run(self):
+        # Mean value of center image is used for flat field correction
+        fileName = '*' + file_prefix + center_locations[well_index][0] + '_' + center_locations[well_index][
+            1] + '.ome.tif'
+        ffc_centerPath = glob(osp.join(ffc_folder, well_folder + '*', fileName))[0]
+        ffc_center = cv.imread(ffc_centerPath, -1)
+        if ffc_center is None:
+            raise OSError("The flat field image, {}, was not found".format(ffc_centerPath))
+
+        # FFC edge images are used to threshold the area outside the dish
+        fileName = '*' + file_prefix + edge_locations[well_index][0] + '_' + edge_locations[well_index][1] + '.ome.tif'
+        ffc_edgePath = glob(osp.join(ffc_folder, well_folder + '*', fileName))[0]
+        ffc_edge = cv.imread(ffc_edgePath, -1)
+        if ffc_edge is None:
+            raise OSError("The flat field file, {}, was not found".format(ffc_edgePath))
+
+        # FF corrected cell edge images are used to threshold the edge effects from the dish
+        fileName = '*' + file_prefix + edge_locations[well_index][0] + '_' + edge_locations[well_index][1] + '.ome.tif'
+        edgePath = glob(osp.join(root, plate_folder, well_folder + '*', fileName))[0]
+        cell_edge = cv.imread(edgePath, -1)
+        if cell_edge is None:
+            raise OSError("The file, {}, was not found".format(edgePath))
+
+        ffc_center -= dark_count
+        ffc_mean = ffc_center.mean()
+        ffc_std = ffc_center.std()
+
+        ffc_edge -= dark_count
+        ffc_thresh, binary = cv.threshold(ffc_edge, 0, 1, cv.THRESH_BINARY | cv.THRESH_OTSU)
+
+        cell_edge -= dark_count
+        cell_edge = ((cell_edge * ffc_mean) / ffc_edge).astype(np.uint16)
+        cell_thresh, binary = cv.threshold(cell_edge, 0, 1, cv.THRESH_BINARY | cv.THRESH_OTSU)
+
+        # create save folder
+        if not osp.exists(osp.join(analyzed_folder, well_folder + '_' + outline_folder)):
+            os.makedirs(osp.join(analyzed_folder, well_folder + '_' + outline_folder))
+        # create save folder
+        if not osp.exists(osp.join(analyzed_folder, well_folder + '_' + binary_folder)):
+            os.makedirs(osp.join(analyzed_folder, well_folder + '_' + binary_folder))
+        if not osp.exists(osp.join(analyzed_folder, well_folder + '_' + ff_corr_folder)):
+            os.makedirs(osp.join(analyzed_folder, well_folder + '_' + ff_corr_folder))
+
+            # Intialize coverage variables
+        cell_area = background_area = removed_area = 0
+
+        # loop through cell images
+        file_list = glob(osp.join(root, plate_folder, well_folder + '*', '*' + file_prefix + '*'))
+        tileSize = (max([int(i.split('Pos')[-1].split('.')[0].split('_')[0]) for i in file_list]) + 1,
+                    max([int(i.split('Pos')[-1].split('.')[0].split('_')[1]) for i in file_list]) + 1)
+
+        for cell_img_loc in file_list:
+            # load flat field
+            fileName = osp.join(ffc_folder, well_folder + '*', '*' + cell_img_loc.split(file_prefix)[-1])
+            try:
+                ffc_img_loc = glob(fileName)[0]
+            except IndexError:
+                raise OSError("a file matching pattern {} was not found".format(fileName))
+            ffc_img = cv.imread(ffc_img_loc, -1)
+            if ffc_img is None:
+                raise OSError("The file, {}, was not found".format(ffc_img_loc))
+            ffc_img -= dark_count
+            ffc_img = np.rot90(ffc_img, rotate90)
+
+            # load cell
+            cell_img = cv.imread(cell_img_loc, -1)
+            if cell_img is None:
+                raise OSError("The file, {}, was not found".format(cell_img_loc))
+            cell_img -= dark_count
+            cell_img = np.rot90(cell_img, rotate90)
+
+            standard_img = standardizeImage(cell_img, ffc_img, ffc_mean, ffc_std)
+            background_mask = calculateBackground(cell_img, ffc_img, cell_thresh, ffc_thresh)
+            # Segment out cells from background
+            outline, morph_img = analyze_img(standard_img, background_mask)
+
+            # Keep track of areas to calculate coverage
+            removed_area += np.count_nonzero(morph_img == 2)
+            background_area += np.count_nonzero(morph_img == 1)
+            cell_area += np.count_nonzero(morph_img == 0)
+
+            # Write images to file
+            fileName = f'{analyzed_filename}{cell_img_loc.split(well_folder)[2]}'
+            cv.imwrite(osp.join(analyzed_folder, f'{well_folder}_{binary_folder}', fileName), morph_img)
+            cv.imwrite(osp.join(analyzed_folder, f'{well_folder}_{ff_corr_folder}', fileName), corr_img)
+            # Add segmentation outline to corrected image
+            corr_img[outline.astype(bool)] = 0
+            cv.imwrite(osp.join(analyzed_folder, f'{well_folder}_{outline_folder}', fileName), corr_img)
+
+        # Output and save coverage numbers
+        results[well_folder] = 100 * cell_area / (cell_area + background_area)
+        print(f'The coverage is {results[well_folder]} %')
+
+        os.path.join(rootDir, plate, analysisFolder, well + '_' + outlineFolderName)
+        self.stitcher.waitOnProcesses()
+        self.stitcher.stitch(os.path.join(self.root, Names.outline), tileSize)
+        self.stitcher.stitch(os.path.join(self.root, Names.binary), tileSize)
+
 
 def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations, edge_locations, analysisNum:int, dark_count:int, imageJPath:str, ffc_folder, rotate90=0):
     '''

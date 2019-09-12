@@ -13,37 +13,27 @@ class ImageJStitcher:
         if not os.path.exists(imageJPath):
             raise OSError("imageJ could not be found at {}".format(imageJPath))
         self.imjPath = imageJPath
-        self.process = None #The last subprocess ran.
+        self.process = [] #The last subprocess ran.
 
-    def stitchCoverage(self, rootDir: str, plate: str, well: str, gridSize: Tuple[int, int], analysisFolder: str,
-                       outlineFolderName: str, binaryFolderName: str):
-        """Used by the coverage analysis code to stich outline images and binarized images."""
-        if self.process is not None:
-            if self.process.poll() is None: #this means the process is still running
-                print("\t\tfinishing imagej stitch process")
-                self.process.wait()
-                print('\t\tdone')
-            stdout, stderr = self.process.communicate()
-
+    def stitch(self, directory: str,  gridSize: Tuple[int, int]):
         file_name = "analyzed_MMStack_1-Pos{xxx}_{yyy}.ome.tif"
+        stitchString = self._genStitchString(gridSize, 10, (0,0), directory, file_name)
+        imJCmd = f'''{stitchString}
+                run('Apply LUT');
+                run('8-bit');
+                saveAs('Jpeg', '{directory}.jpg');
+                close();'''
 
-        outlinePath = os.path.join(rootDir, plate, analysisFolder, well+'_'+outlineFolderName)
-        binaryPath = os.path.join(rootDir, plate, analysisFolder, well+'_'+binaryFolderName)
-        outlineString = self._genStitchString(gridSize, 10, (0, 0), outlinePath, file_name)
-        binaryString = self._genStitchString(gridSize, 10, (0, 0), binaryPath, file_name)
+        self.process.append(self.runImJCmd(imJCmd, directory))
 
-        imJCmd = outlineString +  \
-        f'''run('Apply LUT');
-        run('8-bit');
-        saveAs('Jpeg', '{os.path.join(rootDir, plate, analysisFolder, well + outlineFolderName + ".jpg")}');
-        close();''' +   \
-        binaryString +  \
-        f'''run('8-bit');
-        saveAs('Jpeg', '{os.path.join(rootDir, plate, analysisFolder, well + binaryFolderName + ".jpg")}');
-        close();'''
-
-        self.process = self.runImJCmd(imJCmd, os.path.join(rootDir, plate, analysisFolder))
-
+    def waitOnProcesses(self):
+        for proc in self.process:
+            if proc.poll() is None: #this means the process is still running
+                print("\t\tfinishing imagej stitch process")
+                proc.wait()
+                print('\t\tdone')
+            stdout, stderr = proc.communicate()
+            self.process.remove(proc)
 
     def _genStitchString(self, gridSize: Tuple[int,int], overlap: int, firstFileIndices: Tuple[int,int], directory: str, fileName: str):
         """Generates a string that can be used to run a stich process in imagej. Feed this string along with other commands to `runImJCmd`"""
