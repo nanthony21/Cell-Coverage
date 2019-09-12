@@ -29,9 +29,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
     ffc_folder: Flat Field correction path
     rotate90: the number of times to rotate the images by 90 degrees.
     '''
-    #Error checking
     stitcher = ImageJStitcher(imageJPath)
-
     
     # Filename prefix
     file_prefix = '_MMStack_1-Pos'
@@ -44,7 +42,6 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
     # Number list used for grid error correction
     num_list = ['000', '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']
 
-    stitchingProcess = None
     for plate_folder in plate_folder_list:  # Loop through plates
         print(plate_folder)
         # Create folder for results
@@ -136,17 +133,18 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
                 cell_area += np.count_nonzero(morph_img == 0)
                 
                 # Write images to file
-                cv.imwrite(osp.join(analyzed_folder, well_folder + '_' + binary_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), morph_img)
-                cv.imwrite(osp.join(analyzed_folder, well_folder + '_' + ff_corr_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
+                fileName = f'{analyzed_filename}{cell_img_loc.split(well_folder)[2]}'
+                cv.imwrite(osp.join(analyzed_folder, f'{well_folder}_{binary_folder}', fileName), morph_img)
+                cv.imwrite(osp.join(analyzed_folder, f'{well_folder}_{ff_corr_folder}', fileName), corr_img)
                 # Add segmentation outline to corrected image
                 corr_img[outline.astype(bool)] = 0
-                cv.imwrite(osp.join(analyzed_folder, well_folder + '_' + outline_folder, analyzed_filename + cell_img_loc.split(well_folder)[2]), corr_img)
+                cv.imwrite(osp.join(analyzed_folder, f'{well_folder}_{outline_folder}', fileName), corr_img)
             
             # Output and save coverage numbers
-            print('The coverage is ', 100*cell_area/(cell_area + background_area), ' %')
             results[well_folder] = 100*cell_area/(cell_area + background_area)
-            imjProcess = stitcher.stitchCoverage(root, plate_folder, well_folder, tileSize, analyzed_folder, outline_folder, binary_folder, stitchingProcess)
-                # Initialize txt file to save coverage numbers
+            print(f'The coverage is {results[well_folder]} %')
+            stitcher.stitchCoverage(root, plate_folder, well_folder, tileSize, analyzed_folder, outline_folder, binary_folder)
+        # Save coverage numbers
         with open(osp.join(analyzed_folder, 'Coverage Percentage Results.csv'),'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([str(datetime.datetime.now())])
@@ -155,7 +153,7 @@ def analyzeCoverage(root, plate_folder_list, well_folder_list, center_locations,
             writer.writerow(list(results.keys()))  # Well folder names
             writer.writerow(list(results.values()))
             
-    imjProcess.communicate()  # wait for the last imagej process to finish.
+    stitcher.process.communicate()  # wait for the last imagej process to finish.
 
 
 def analyze_img(img: np.ndarray, *mask):

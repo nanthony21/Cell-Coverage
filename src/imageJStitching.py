@@ -13,16 +13,17 @@ class ImageJStitcher:
         if not os.path.exists(imageJPath):
             raise OSError("imageJ could not be found at {}".format(imageJPath))
         self.imjPath = imageJPath
+        self.process = None #The last subprocess ran.
 
     def stitchCoverage(self, rootDir: str, plate: str, well: str, gridSize: Tuple[int, int], analysisFolder: str,
-                       outlineFolderName: str, binaryFolderName: str, previousStitchingProcess=None):
+                       outlineFolderName: str, binaryFolderName: str):
         """Used by the coverage analysis code to stich outline images and binarized images."""
-        if previousStitchingProcess is not None:
-            if previousStitchingProcess.poll() is None: #this means the process is still running
+        if self.process is not None:
+            if self.process.poll() is None: #this means the process is still running
                 print("\t\tfinishing imagej stitch process")
-                previousStitchingProcess.wait()
+                self.process.wait()
                 print('\t\tdone')
-            stdout, stderr = previousStitchingProcess.communicate()
+            stdout, stderr = self.process.communicate()
 
         file_name = "analyzed_MMStack_1-Pos{xxx}_{yyy}.ome.tif"
 
@@ -41,8 +42,7 @@ class ImageJStitcher:
         saveAs('Jpeg', '{os.path.join(rootDir, plate, analysisFolder, well + binaryFolderName + ".jpg")}');
         close();'''
 
-        proc = self.runImJCmd(imJCmd, os.path.join(rootDir, plate, analysisFolder))
-        return proc
+        self.process = self.runImJCmd(imJCmd, os.path.join(rootDir, plate, analysisFolder))
 
 
     def _genStitchString(self, gridSize: Tuple[int,int], overlap: int, firstFileIndices: Tuple[int,int], directory: str, fileName: str):
