@@ -192,7 +192,7 @@ class SingleImageAnalyzer:
         bin_var_img = cv.threshold(var_img, 0.015, 255, cv.THRESH_BINARY)[1]  # Use Otsu to calculate binary threshold and binarize #TODO this isn't otsu
         bin_var_img = bin_var_img.astype(np.uint8)
         bin_var_img[bin_var_img == 0] = 1  # flip background and foreground
-        bin_var_img[bin_var_img == 1] = 0
+        bin_var_img[bin_var_img == 255] = 0
         bin_var_img[~mask.astype(bool)] = 2 #Use a third value to show regions that are considered to be outside the dish
         kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))  # Set kernels for morphological operations and CC
         morph_img = remove_component(bin_var_img, 100)  # Erode->Remove small features->dilate
