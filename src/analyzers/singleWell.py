@@ -114,7 +114,7 @@ class SingleWellCoverageAnalyzer:
 
         self.stitcher.stitch(os.path.join(self.outPath, Names.outline), tileSize, "{xxx}_{yyy}.tif")
         self.stitcher.stitch(os.path.join(self.outPath, Names.binary), tileSize, "{xxx}_{yyy}.tif")
-        self.stitcher.waitOnProcesses()
+        # self.stitcher.waitOnProcesses()
         return results
 
     @staticmethod

@@ -25,6 +25,12 @@ class ImageJStitcher:
 
         self.process.append(self.runImJCmd(imJCmd, directory))
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.waitOnProcesses()
+
     def waitOnProcesses(self):
         num = len(self.process)
         for i, proc in enumerate(self.process):

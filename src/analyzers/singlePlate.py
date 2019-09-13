@@ -8,6 +8,7 @@ import shutil
 from glob import glob
 from src.utility import Names
 from src import utility
+import matplotlib.pyplot as plt
 
 class SinglePlateAnalyzer:
     def __init__(self, outPath: str, platePath: str, ffcPath: str, centerImgLocations: List[Tuple[int, int]], edgeImgLocations: List[Tuple[int, int]], darkCount: int,
@@ -51,7 +52,7 @@ class SinglePlateAnalyzer:
     def run(self):
         for i, wellFolder in enumerate(self.plateStructure.keys()):
             print(wellFolder)
-            SingleWellCoverageAnalyzer(outPath=os.path.join(self.outPath, wellFolder),
+            well = SingleWellCoverageAnalyzer(outPath=os.path.join(self.outPath, wellFolder),
                                        wellPath=os.path.join(self.platePath, wellFolder),
                                        ffcPath=os.path.join(self.ffcPath, wellFolder),
                                        centerImgLocation=self.centerLocations[i],
@@ -60,21 +61,27 @@ class SinglePlateAnalyzer:
                                        stitcher=self.stitcher,
                                        rotate90=self.rot,
                                        debug=self.debug)
+            well.run()
             if self.debug:
-                input(f"Press enter to when done with well {wellFolder}: ")
+                print(f"Press ctrl+c to when done with well {wellFolder}: ")
+                try:
+                    while True:
+                        plt.pause(0.05)
+                except KeyboardInterrupt:
+                    print("continuing.")
 
 if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication
     import sys
     app = QApplication(sys.argv)
-    stitcher = ImageJStitcher(r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe')
-    plate = SinglePlateAnalyzer(outPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\Analyzeddd',
-                                platePath=r'H:\HT29 coverage myo + cele (8-26-19)\48h',
-                                ffcPath=r'H:\HT29 coverage myo + cele (8-26-19)\Flat field corr 48h',
-                                centerImgLocations=[(0,6), (2,5), (2,5), (2,5), (2,5), (2,5)],
-                                edgeImgLocations=[(1,1), (1,8), (1,8), (1,1), (1,8), (1,8)],
-                                darkCount=624,
-                                stitcher=stitcher,
-                                rotate90=0,
-                                debug=True)
-    plate.run()
+    with ImageJStitcher(r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe') as stitcher:
+        plate = SinglePlateAnalyzer(outPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\Analyzeddd',
+                                    platePath=r'H:\HT29 coverage myo + cele (8-26-19)\48h',
+                                    ffcPath=r'H:\HT29 coverage myo + cele (8-26-19)\Flat field corr 48h',
+                                    centerImgLocations=[(0,6), (2,5), (2,5), (2,5), (2,5), (2,5)],
+                                    edgeImgLocations=[(1,1), (1,8), (1,8), (1,1), (1,8), (1,8)],
+                                    darkCount=624,
+                                    stitcher=stitcher,
+                                    rotate90=0,
+                                    debug=False)
+        plate.run()
