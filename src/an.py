@@ -62,13 +62,15 @@ class SingleWellCoverageAnalyzer:
         # FFC edge images are used to threshold the area outside the dish
         ffc_edge, _ = self.loadImage(self.edge, self.ffcPath)
         ffc_edge -= self.darkCount
-        ffc_thresh = skimage.filters.threshold_otsu(ffc_edge)
+        # ffc_thresh = skimage.filters.threshold_otsu(ffc_edge)
+        ffc_thresh = otsu_1d(ffc_edge, wLowOpt=1)
 
         # FF corrected cell edge images are used to threshold the edge effects from the dish
         cell_edge, _ = self.loadImage(self.edge, self.wellPath)
         cell_edge -= self.darkCount
         cell_edge = ((cell_edge * ffc_mean) / ffc_edge).astype(np.uint16) #TODO what does this achieve
-        cell_thresh = skimage.filters.threshold_otsu(cell_edge)
+        # cell_thresh = skimage.filters.threshold_otsu(cell_edge)
+        cell_thresh = otsu_1d(cell_edge, wLowOpt=1)
 
 
         # Intialize coverage variables
@@ -101,7 +103,7 @@ class SingleWellCoverageAnalyzer:
             outlinedImg = ((outlinedImg - outlinedImg.min()) / (outlinedImg.max() - outlinedImg.min()) * 255).astype(np.uint8)  # scale data to 8bit.
             outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1),cv.getStructuringElement(cv.MORPH_ELLIPSE,(2, 2)))  # binary outline for overlay
             rgboutline = np.zeros((*outline.shape, 3), dtype=np.bool)
-            rgboutline[:,:,0] = outline
+            rgboutline[:, :, 0] = outline
             outlinedImg[rgboutline] = 255
             imageio.imwrite(osp.join(self.outPath, Names.outline, fileName), outlinedImg)
 
@@ -207,11 +209,37 @@ class Names:
     corrected = 'Corrected'
     analyzed = 'analyzed'
 
+
+def otsu_1d(img, wLowOpt=None, wHighOpt=None):
+    ''' calculates the threshold for binarization using Otsu's method.
+    The weights for the low and high distribution can be overridden using the optional arguments.
+    '''
+    flat_img = img.flatten()
+    var_b_max = 0
+    bin_index = 0
+
+    num_bins = 100  # Can reduce num_bins to speed code, but reduce accuracy of threshold
+    img_min = np.percentile(flat_img, 1)
+    img_max = np.percentile(flat_img, 99)
+    for bin_val in np.linspace(img_min, img_max, num_bins, endpoint=False):
+        # segment data based on bin
+        gLow = flat_img[flat_img <= bin_val]
+        gHigh = flat_img[flat_img > bin_val]
+
+        # determine weights of each bin
+        wLow = gLow.size / flat_img.size if (wLowOpt is None) else wLowOpt
+        wHigh = gHigh.size / flat_img.size if (wHighOpt is None) else wLowOpt
+
+        # maximize inter-class variance
+        var_b = wLow * wHigh * (gLow.mean() - gHigh.mean()) ** 2
+        [var_b_max, bin_index] = [var_b, bin_val] if var_b > var_b_max else [var_b_max, bin_index]
+    return bin_index
+
 if __name__ == '__main__':
     stitcher = ImageJStitcher(r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe')
     import sys
     app = QApplication(sys.argv)
-    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\BottomLeft_1\Ana',
+    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\BottomLeft_1\Ana3',
                                wellPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\BottomLeft_1',
                                ffcPath=r'H:\HT29 coverage myo + cele (8-26-19)\Flat field corr 48h\BottomLeft_1',
                                centerImgLocation=(0,6),
