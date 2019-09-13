@@ -93,15 +93,17 @@ class SingleWellCoverageAnalyzer:
 
             # Write images to file
             fileName = f"{location[0]:03d}_{location[1]:03d}.tif"
-            imageio.imwrite(osp.join(self.outPath, Names.binary, fileName), morph_img)
+            imageio.imwrite(osp.join(self.outPath, Names.binary, fileName), morph_img*127) #We multiply by 127 to use the whole 255 color range.
             imageio.imwrite(osp.join(self.outPath, Names.corrected, fileName), standard_img.astype(np.float32))
             # Add segmentation outline to corrected image
             outlinedImg = np.zeros((standard_img.shape[0], standard_img.shape[1], 3))
-            outlinedImg[:, :, :] = standard_img[:, :, None]
-            rgboutline = np.zeros((standard_img.shape[0], standard_img.shape[1], 3), dtype=np.bool)
-            rgboutline[:, :, 0] = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE, (2, 2)))  # binary outline for overlay
-            outlinedImg[rgboutline] = 1
-            imageio.imwrite(osp.join(self.outPath, Names.outline, fileName), outlinedImg.astype(np.float32))
+            outlinedImg[:, :, :] = standard_img[:, :, None] #Extend to 3rd dimension to make it RGB.
+            outlinedImg = ((outlinedImg - outlinedImg.min()) / (outlinedImg.max() - outlinedImg.min()) * 255).astype(np.uint8)  # scale data to 8bit.
+            outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1),cv.getStructuringElement(cv.MORPH_ELLIPSE,(2, 2)))  # binary outline for overlay
+            rgboutline = np.zeros((*outline.shape, 3), dtype=np.bool)
+            rgboutline[:,:,0] = outline
+            outlinedImg[rgboutline] = 255
+            imageio.imwrite(osp.join(self.outPath, Names.outline, fileName), outlinedImg)
 
         # Output and save coverage numbers
         results = 100 * Cell_area / (Cell_area + Background_area)
@@ -191,8 +193,7 @@ class SingleImageAnalyzer:
         bin_var_img[bin_var_img == 0] = 1  # flip background and foreground
         bin_var_img[bin_var_img == 1] = 0
         kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))  # Set kernels for morphological operations and CC
-        min_size = 100
-        morph_img = remove_component(bin_var_img, min_size)  # Erode->Remove small features->dilate
+        morph_img = remove_component(bin_var_img, 100)  # Erode->Remove small features->dilate
         morph_img = cv.dilate(morph_img, kernel_dil)
         return morph_img
 
