@@ -1,4 +1,6 @@
+import json
 from typing import Tuple, List
+import re
 from PyQt5.QtWidgets import QMessageBox
 
 from src.analyzers.singleWell import SingleWellCoverageAnalyzer
@@ -11,7 +13,7 @@ from src import utility
 import matplotlib.pyplot as plt
 
 class SinglePlateAnalyzer:
-    def __init__(self, outPath: str, platePath: str, ffcPath: str, centerImgLocations: List[Tuple[int, int]], edgeImgLocations: List[Tuple[int, int]], darkCount: int,
+    def __init__(self, outPath: str, platePath: str, ffcPath: str, darkCount: int,
                  stitcher: ImageJStitcher, rotate90: int = 0, debug: bool = False):
         self.darkCount = darkCount
         self.stitcher = stitcher
@@ -20,15 +22,17 @@ class SinglePlateAnalyzer:
         self.outPath = outPath
         self.platePath = platePath
         self.ffcPath = ffcPath
-        self.centerLocations = centerImgLocations
-        self.edgeLocations = edgeImgLocations
+        if not os.path.exists(os.path.join(self.platePath, 'plateConfig.json')):
+            QMessageBox.information(None, 'On No', f'Could not find a `plateConfig.json` file in {self.platePath}')
+            raise Exception("plateConfig.json missing.")
+        with open(os.path.join(self.platePath, 'plateConfig.json')) as f:
+            self.plateConfig = json.load(f)
         plateStructure = self.detectPlateFolderStructure(platePath)
         ffcStructure = self.detectPlateFolderStructure(ffcPath)
+        assert all([any([re.match(pattern, name) for name in plateStructure.keys()]) for pattern in self.plateConfig.keys()]), "The subdirectory names in `plateConfig.json` could not be matched to the folder structure."
         assert plateStructure.keys() == ffcStructure.keys()
         for k, v in plateStructure.items():
             assert ffcStructure[k] == v, f"For Well {k}: plate has locations: {v}, but flatField has locations: {ffcStructure[k]}"
-        assert len(plateStructure.keys()) == len(centerImgLocations)
-        assert len(centerImgLocations) == len(edgeImgLocations)
         self.plateStructure = plateStructure
 
         if os.path.exists(self.outPath):
@@ -52,11 +56,12 @@ class SinglePlateAnalyzer:
     def run(self):
         for i, wellFolder in enumerate(self.plateStructure.keys()):
             print(wellFolder)
+            config = [v for k,v in self.plateConfig.items() if re.match(k, wellFolder)][0]
             well = SingleWellCoverageAnalyzer(outPath=os.path.join(self.outPath, wellFolder),
                                        wellPath=os.path.join(self.platePath, wellFolder),
                                        ffcPath=os.path.join(self.ffcPath, wellFolder),
-                                       centerImgLocation=self.centerLocations[i],
-                                       edgeImgLocation=self.edgeLocations[i],
+                                       centerImgLocation=config['Center'],
+                                       edgeImgLocation=config['Edge'],
                                        darkCount=self.darkCount,
                                        stitcher=self.stitcher,
                                        rotate90=self.rot,
@@ -78,10 +83,8 @@ if __name__ == '__main__':
         plate = SinglePlateAnalyzer(outPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\Analyzeddd',
                                     platePath=r'H:\HT29 coverage myo + cele (8-26-19)\48h',
                                     ffcPath=r'H:\HT29 coverage myo + cele (8-26-19)\Flat field corr 48h',
-                                    centerImgLocations=[(0,6), (2,5), (2,5), (2,5), (2,5), (2,5)],
-                                    edgeImgLocations=[(1,1), (1,8), (1,8), (1,1), (1,8), (1,8)],
                                     darkCount=624,
                                     stitcher=stitcher,
-                                    rotate90=0,
+                                    rotate90=1,
                                     debug=False)
         plate.run()

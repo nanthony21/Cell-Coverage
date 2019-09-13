@@ -114,7 +114,6 @@ class SingleWellCoverageAnalyzer:
 
         self.stitcher.stitch(os.path.join(self.outPath, Names.outline), tileSize, "{xxx}_{yyy}.tif")
         self.stitcher.stitch(os.path.join(self.outPath, Names.binary), tileSize, "{xxx}_{yyy}.tif")
-        # self.stitcher.waitOnProcesses()
         return results
 
     @staticmethod
@@ -160,7 +159,7 @@ if __name__ == '__main__':
     import sys
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\BottomLeft_1\Ana3',
+    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\BottomLeft_1\Ana',
                                     wellPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\BottomLeft_1',
                                     ffcPath=r'H:\HT29 coverage myo + cele (8-26-19)\Flat field corr 48h\BottomLeft_1',
                                     centerImgLocation=(0,6),
