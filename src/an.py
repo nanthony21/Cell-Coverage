@@ -17,7 +17,7 @@ import skimage.filters
 
 class SingleWellCoverageAnalyzer:
     def __init__(self, outPath: str, wellPath: str, ffcPath: str, centerImgLocation: Tuple[int, int], edgeImgLocation: Tuple[int, int], darkCount: int,
-                 stitcher: ImageJStitcher, rotate90: int = 0):
+                 stitcher: ImageJStitcher, rotate90: int = 0, debug: bool = False):
         """root: Root folder for experiment."""
         self.wellPath = wellPath
         self.ffcPath = ffcPath
@@ -27,6 +27,7 @@ class SingleWellCoverageAnalyzer:
         self.darkCount = darkCount
         self.stitcher = stitcher
         self.rot = rotate90
+        self.debug = debug
 
     @staticmethod
     def loadImage(location: Tuple[int, int], path: str):
@@ -62,15 +63,13 @@ class SingleWellCoverageAnalyzer:
         # FFC edge images are used to threshold the area outside the dish
         ffc_edge, _ = self.loadImage(self.edge, self.ffcPath)
         ffc_edge -= self.darkCount
-        # ffc_thresh = skimage.filters.threshold_otsu(ffc_edge)
-        ffc_thresh = otsu_1d(ffc_edge, wLowOpt=1)
+        ffc_thresh = otsu_1d(ffc_edge, wLowOpt=1, debug=self.debug)
 
         # FF corrected cell edge images are used to threshold the edge effects from the dish
         cell_edge, _ = self.loadImage(self.edge, self.wellPath)
         cell_edge -= self.darkCount
         cell_edge = ((cell_edge * ffc_mean) / ffc_edge).astype(np.uint16) #TODO what does this achieve
-        # cell_thresh = skimage.filters.threshold_otsu(cell_edge)
-        cell_thresh = otsu_1d(cell_edge, wLowOpt=1)
+        cell_thresh = otsu_1d(cell_edge, wLowOpt=1, debug=self.debug)
 
 
         # Intialize coverage variables
@@ -87,7 +86,14 @@ class SingleWellCoverageAnalyzer:
 
             analyzer = SingleImageAnalyzer(self.darkCount, self.rot)
             standard_img, background_mask, morph_img, removed_area, background_area, cell_area = analyzer.run(ffc_img, cell_img, ffc_mean, ffc_std, cell_thresh, ffc_thresh)
-
+            if self.debug:
+                plt.figure()
+                plt.imshow(standard_img)
+                plt.figure()
+                plt.imshow(background_mask)
+                plt.figure()
+                plt.imshow(morph_img)
+                plt.show()
             # Keep track of areas to calculate coverage
             Removed_area += removed_area
             Background_area += background_area
@@ -117,19 +123,20 @@ class SingleWellCoverageAnalyzer:
         return results
 
 
-
 class SingleImageAnalyzer:
-    def __init__(self, darkCount: int, rotate90: int):
+    def __init__(self, darkCount: int, rotate90: int, image: np.ndarray, flatField: np.ndarray):
         self.darkCount = darkCount
         self.rot90 = rotate90
+        self.img = image
+        self.ffc = flatField
+        self.img -= self.darkCount
+        self.ffc -= self.darkCount
+        self.img = np.rot90(self.img, self.rot90)
+        self.ffc = np.rot90(self.ffc, self.rot90)
 
-    def run(self, ffcImg: np.ndarray, img: np.ndarray, ffcMean: float, ffcStd: float, cellThresh: float, ffcThresh: float):
-        ffcImg -= self.darkCount
-        img -= self.darkCount
-        ffcImg = np.rot90(ffcImg, self.rot90)
-        img = np.rot90(img, self.rot90)
-        std = self.standardizeImage(img, ffcImg, ffcMean, ffcStd)
-        backgroundMask = self.calculateBackground(img, ffcImg, cellThresh, ffcThresh)
+    def run(self, ffcMean: float, ffcStd: float, cellThresh: float, ffcThresh: float):
+        std = self.getStandardizedImage(ffcMean, ffcStd)
+        backgroundMask = self.calculateBackground(cellThresh, ffcThresh)
         morph_img = self.analyze_img(std, backgroundMask)
         # Keep track of areas to calculate coverage
         removed_area = np.count_nonzero(morph_img == 2)
@@ -137,19 +144,19 @@ class SingleImageAnalyzer:
         cell_area = np.count_nonzero(morph_img == 0)
         return std, backgroundMask, morph_img, removed_area, background_area, cell_area
 
-    @staticmethod
-    def calculateBackground(image: np.ndarray, flatField: np.ndarray, imageThreshold: float, flatFieldThreshold: float):
+    def getStandardizedImage(self, ffcMean, ffcStd):
+        corrected = ((self.img * ffcMean) / self.ffc).astype(np.uint16)
+        standardized = (corrected - ffcMean) / ffcStd  # Data Standardization
+        return standardized
+
+    def calculateBackground(self, imageThreshold: float, flatFieldThreshold: float):
         # Determine mask to remove dark regions and regions outside of dish
-        ffc_mask = cv.threshold(flatField, flatFieldThreshold, 65535, cv.THRESH_BINARY)[1]
-        corr_mask = cv.threshold(image, imageThreshold, 65535, cv.THRESH_BINARY)[1]
+        ffc_mask = cv.threshold(self.ffc, flatFieldThreshold, 65535, cv.THRESH_BINARY)[1]
+        corr_mask = cv.threshold(self.img, imageThreshold, 65535, cv.THRESH_BINARY)[1]
         backgroundMask = ffc_mask * corr_mask
         return backgroundMask
 
-    @staticmethod
-    def standardizeImage(image: np.ndarray, flatField: np.ndarray, meanIntensity: float, stdIntensity: float):
-        corr_img = ((image * meanIntensity) / flatField).astype(np.uint16)  # calculated corrected image
-        standardImg = (corr_img - meanIntensity) / stdIntensity  # Data Standardization
-        return standardImg
+
 
     @staticmethod
     def analyze_img(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
@@ -211,7 +218,7 @@ class Names:
     analyzed = 'analyzed'
 
 
-def otsu_1d(img, wLowOpt=None, wHighOpt=None):
+def otsu_1d(img, wLowOpt=None, wHighOpt=None, debug: bool = False):
     ''' calculates the threshold for binarization using Otsu's method.
     The weights for the low and high distribution can be overridden using the optional arguments.
     '''
@@ -222,7 +229,9 @@ def otsu_1d(img, wLowOpt=None, wHighOpt=None):
     num_bins = 100  # Can reduce num_bins to speed code, but reduce accuracy of threshold
     img_min = np.percentile(flat_img, 1)
     img_max = np.percentile(flat_img, 99)
-    for bin_val in np.linspace(img_min, img_max, num_bins, endpoint=False):
+    variances = []
+    thresholdVals = np.linspace(img_min, img_max, num_bins, endpoint=False)
+    for bin_val in thresholdVals:
         # segment data based on bin
         gLow = flat_img[flat_img <= bin_val]
         gHigh = flat_img[flat_img > bin_val]
@@ -233,8 +242,16 @@ def otsu_1d(img, wLowOpt=None, wHighOpt=None):
 
         # maximize inter-class variance
         var_b = wLow * wHigh * (gLow.mean() - gHigh.mean()) ** 2
-        [var_b_max, bin_index] = [var_b, bin_val] if var_b > var_b_max else [var_b_max, bin_index]
-    return bin_index
+        variances.append(var_b)
+    threshold = thresholdVals[np.argmax(variances)]
+    if debug:
+        fig, ax = plt.subplots()
+        ax2 = plt.twinx(ax)
+        ax2.plot(thresholdVals, variances, color='r')
+        ax.hist(flat_img, bins=num_bins)
+        ax2.vlines(threshold, 0, max(variances))
+        fig.show()
+    return threshold
 
 if __name__ == '__main__':
     stitcher = ImageJStitcher(r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe')
@@ -247,5 +264,6 @@ if __name__ == '__main__':
                                edgeImgLocation=(1,1),
                                darkCount=624,
                                stitcher=stitcher,
-                               rotate90=0)
+                               rotate90=0,
+                               debug = True)
     an.run()
