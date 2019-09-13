@@ -15,9 +15,8 @@ class ImageJStitcher:
         self.imjPath = imageJPath
         self.process = [] #The last subprocess ran.
 
-    def stitch(self, directory: str,  gridSize: Tuple[int, int]):
-        file_name = "analyzed_MMStack_1-Pos{xxx}_{yyy}.ome.tif"
-        stitchString = self._genStitchString(gridSize, 10, (0,0), directory, file_name)
+    def stitch(self, directory: str,  gridSize: Tuple[int, int], fileNamePattern: str):
+        stitchString = self._genStitchString(gridSize, 10, (0,0), directory, fileNamePattern)
         imJCmd = f'''{stitchString}
                 run('Apply LUT');
                 run('8-bit');
@@ -27,13 +26,15 @@ class ImageJStitcher:
         self.process.append(self.runImJCmd(imJCmd, directory))
 
     def waitOnProcesses(self):
-        for proc in self.process:
+        num = len(self.process)
+        for i, proc in enumerate(self.process):
+            print(f"Checking process {i+1} of {num}")
             if proc.poll() is None: #this means the process is still running
-                print("\t\tfinishing imagej stitch process")
+                print("\tfinishing imagej stitch process")
                 proc.wait()
-                print('\t\tdone')
+                print('\tdone')
             stdout, stderr = proc.communicate()
-            self.process.remove(proc)
+            print(f"finished process {i+1} of {num}")
 
     def _genStitchString(self, gridSize: Tuple[int,int], overlap: int, firstFileIndices: Tuple[int,int], directory: str, fileName: str):
         """Generates a string that can be used to run a stich process in imagej. Feed this string along with other commands to `runImJCmd`"""
