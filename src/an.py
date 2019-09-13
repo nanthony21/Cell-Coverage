@@ -130,8 +130,7 @@ class SingleImageAnalyzer:
         img = np.rot90(img, self.rot90)
         std = self.standardizeImage(img, ffcImg, ffcMean, ffcStd)
         backgroundMask = self.calculateBackground(img, ffcImg, cellThresh, ffcThresh)
-        morph_img = self.analyze_img(std)
-        morph_img[~backgroundMask.astype(bool)] = 2 #Use a third value to show regions that are considered to be outside the dish
+        morph_img = self.analyze_img(std, backgroundMask)
         # Keep track of areas to calculate coverage
         removed_area = np.count_nonzero(morph_img == 2)
         background_area = np.count_nonzero(morph_img == 1)
@@ -153,7 +152,7 @@ class SingleImageAnalyzer:
         return standardImg
 
     @staticmethod
-    def analyze_img(img: np.ndarray) -> np.ndarray:
+    def analyze_img(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
         """Segment out cells from background. Returns a binary uint8 array. 0 is background, 1 is cells"""
 
         def remove_component(img, min_size):
@@ -194,8 +193,10 @@ class SingleImageAnalyzer:
         bin_var_img = bin_var_img.astype(np.uint8)
         bin_var_img[bin_var_img == 0] = 1  # flip background and foreground
         bin_var_img[bin_var_img == 1] = 0
+        bin_var_img[~mask.astype(bool)] = 2 #Use a third value to show regions that are considered to be outside the dish
         kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))  # Set kernels for morphological operations and CC
         morph_img = remove_component(bin_var_img, 100)  # Erode->Remove small features->dilate
+        morph_img[~mask.astype(bool)] = 2 #Use a third value to show regions that are considered to be outside the dish
         morph_img = cv.dilate(morph_img, kernel_dil)
         return morph_img
 
