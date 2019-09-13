@@ -14,6 +14,7 @@ from src.utility import Names
 from src.analyzers.singleImage import SingleImageAnalyzer
 from src.imageJStitching import ImageJStitcher
 from src import utility
+import PIL
 
 
 class SingleWellCoverageAnalyzer:
@@ -106,6 +107,9 @@ class SingleWellCoverageAnalyzer:
             rgboutline = np.zeros((*outline.shape, 3), dtype=np.bool)
             rgboutline[:, :, 0] = outline
             outlinedImg[rgboutline] = 255
+            background = np.zeros((*outline.shape, 3), dtype=np.bool)
+            background[:,:,0] = (morph_img == 2)
+            outlinedImg[background] = 0
             imageio.imwrite(osp.join(self.outPath, Names.outline, fileName), outlinedImg)
 
         # Output and save coverage numbers
