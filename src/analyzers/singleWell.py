@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 from glob import glob
@@ -10,7 +11,7 @@ import numpy as np
 from PyQt5.QtWidgets import QMessageBox
 from matplotlib import pyplot as plt
 
-from src.utility import Names
+from src.utility import Names, OutputOptions
 from src.analyzers.singleImage import SingleImageAnalyzer
 from src.imageJStitching import ImageJStitcher
 from src import utility
@@ -19,7 +20,7 @@ import PIL
 
 class SingleWellCoverageAnalyzer:
     def __init__(self, outPath: str, wellPath: str, ffcPath: str, centerImgLocation: Tuple[int, int], edgeImgLocation: Tuple[int, int], darkCount: int,
-                 stitcher: ImageJStitcher, rotate90: int = 0, debug: bool = False):
+                 stitcher: ImageJStitcher, rotate90: int = 0, outputOption: OutputOptions = OutputOptions.Full, debug: bool = False):
         """root: Root folder for experiment."""
         self.wellPath = wellPath
         self.ffcPath = ffcPath
@@ -30,6 +31,7 @@ class SingleWellCoverageAnalyzer:
         self.stitcher = stitcher
         self.rot = rotate90
         self.debug = debug
+        self.outputOption = outputOption
 
 
 
@@ -61,6 +63,16 @@ class SingleWellCoverageAnalyzer:
         cell_edge = ((cell_edge * ffc_mean) / ffc_edge).astype(np.uint16) #TODO what does this achieve
         cell_thresh = self.otsu_1d(cell_edge, wLowOpt=1, debug=self.debug)
 
+        if self.debug:
+            plt.figure()
+            plt.imshow(ffc_edge)
+            plt.title("FFC edge")
+            plt.figure()
+            plt.imshow(ffc_center)
+            plt.title("FFC center")
+            plt.figure()
+            plt.imshow(cell_edge)
+            plt.title("Cell edge")
 
         # Intialize coverage variables
         Cell_area = Background_area = Removed_area = 0
@@ -83,28 +95,41 @@ class SingleWellCoverageAnalyzer:
 
             # Write images to file
             fileName = f"{location[0]:03d}_{location[1]:03d}.tif"
-            imageio.imwrite(osp.join(self.outPath, Names.binary, fileName), morph_img*127) #We multiply by 127 to use the whole 255 color range.
-            imageio.imwrite(osp.join(self.outPath, Names.corrected, fileName), standard_img.astype(np.float32))
-            # Add segmentation outline to corrected image
-            outlinedImg = np.zeros((standard_img.shape[0], standard_img.shape[1], 3))
-            outlinedImg[:, :, :] = standard_img[:, :, None] #Extend to 3rd dimension to make it RGB.
-            outlinedImg = ((outlinedImg - outlinedImg.min()) / (outlinedImg.max() - outlinedImg.min()) * 255).astype(np.uint8)  # scale data to 8bit.
-            outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1),cv.getStructuringElement(cv.MORPH_ELLIPSE,(2, 2)))  # binary outline for overlay
-            rgboutline = np.zeros((*outline.shape, 3), dtype=np.bool)
-            rgboutline[:, :, 0] = outline
-            outlinedImg[rgboutline] = 255
-            background = np.zeros((*outline.shape, 3), dtype=np.bool)
-            background[:, :, 0] = (morph_img == 2)
-            outlinedImg[background] = 0
-            imageio.imwrite(osp.join(self.outPath, Names.outline, fileName), outlinedImg)
+            if self.outputOption.value & OutputOptions.Binary.value:
+                imageio.imwrite(osp.join(self.outPath, Names.binary, fileName), morph_img*127) #We multiply by 127 to use the whole 255 color range.
+            if self.outputOption.value & OutputOptions.Corrected.value:
+                imageio.imwrite(osp.join(self.outPath, Names.corrected, fileName), standard_img.astype(np.float32))
+            if self.outputOption.value & OutputOptions.Outline.value:
+                # Add segmentation outline to corrected image
+                outlinedImg = np.zeros((standard_img.shape[0], standard_img.shape[1], 3))
+                outlinedImg[:, :, :] = standard_img[:, :, None] #Extend to 3rd dimension to make it RGB.
+                outlinedImg = ((outlinedImg - outlinedImg.min()) / (outlinedImg.max() - outlinedImg.min()) * 255).astype(np.uint8)  # scale data to 8bit.
+                outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE,(2, 2)))  # binary outline for overlay
+                rgboutline = np.zeros((*outline.shape, 3), dtype=np.bool)
+                rgboutline[:, :, 0] = outline
+                outlinedImg[rgboutline] = 255
+                background = np.zeros((*outline.shape, 3), dtype=np.bool)
+                background[:, :, 0] = (morph_img == 2)
+                outlinedImg[background] = 0
+                imageio.imwrite(osp.join(self.outPath, Names.outline, fileName), outlinedImg)
 
         # Output and save coverage numbers
-        results = 100 * Cell_area / (Cell_area + Background_area)
-        print(f'The coverage is {results} %')
+        results = {}
+        results['coverage'] = 100 * Cell_area / (Cell_area + Background_area)
+        print(f"The coverage is {results['coverage']} %")
+        results['ffcThreshold'] = ffc_thresh
+        results['imgThreshold'] = cell_thresh
+        results['ffcMean'] = ffc_mean
+        results['ffcStdDev'] = ffc_std
+        with open(os.path.join(self.outPath, 'output.json'), 'w') as file:
+            json.dump(results, file, indent=4)
 
-        self.stitcher.stitch(os.path.join(self.outPath, Names.outline), tileSize, "{xxx}_{yyy}.tif")
-        self.stitcher.stitch(os.path.join(self.outPath, Names.binary), tileSize, "{xxx}_{yyy}.tif")
-        self.stitcher.stitch(os.path.join(self.outPath, Names.corrected), tileSize, '{xxx}_{yyy}.tif')
+        if self.outputOption.value & OutputOptions.Corrected.value:
+            self.stitcher.stitch(os.path.join(self.outPath, Names.corrected), tileSize, '{xxx}_{yyy}.tif', logDirectory=self.outPath)
+        if self.outputOption.value & OutputOptions.Outline.value:
+            self.stitcher.stitch(os.path.join(self.outPath, Names.outline), tileSize, "{xxx}_{yyy}.tif", logDirectory=self.outPath)
+        if self.outputOption.value & OutputOptions.Binary.value:
+            self.stitcher.stitch(os.path.join(self.outPath, Names.binary), tileSize, "{xxx}_{yyy}.tif", logDirectory=self.outPath)
         return results
 
     @staticmethod
@@ -141,6 +166,7 @@ class SingleWellCoverageAnalyzer:
             ax.hist(flat_img, bins=num_bins)
             ax2.vlines(threshold, 0, max(variances))
             ax.set_xlim(img_min, img_max)
+            fig.suptitle(f"Threshold: {threshold}")
             fig.show()
         return threshold
 
@@ -150,13 +176,14 @@ if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
     with ImageJStitcher(r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe') as stitcher:
-        an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1\Ana3',
+        an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1\Ana4',
                                         wellPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1',
                                         ffcPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr\BottomLeft_1',
                                         centerImgLocation=(0, 6),
-                                        edgeImgLocation=(1, 1),
+                                        edgeImgLocation=(1, 11),
                                         darkCount=624,
                                         stitcher=stitcher,
                                         rotate90=1,
+                                        outputOption=OutputOptions.Binary,
                                         debug=False)
         an.run()

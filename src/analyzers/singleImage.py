@@ -118,7 +118,11 @@ class SingleImageAnalyzer:
             plt.colorbar()
             plt.title("Variance")
             self.figs.append(plt.figure())
+            plt.imshow(cv.dilate(bin_var_img, kernel_dil))
+            plt.title("Pre component removal. 0=Cell, 1=Blank, 2=Ignored")
+            plt.colorbar()
+            self.figs.append(plt.figure())
             plt.imshow(morph_img)
-            plt.title("0=Cell, 1=Blank, 2=Ignored")
+            plt.title("Post component removal. 0=Cell, 1=Blank, 2=Ignored")
             plt.colorbar()
         return morph_img

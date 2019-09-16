@@ -15,15 +15,14 @@ class ImageJStitcher:
         self.imjPath = imageJPath
         self.process = [] #The last subprocess ran.
 
-    def stitch(self, directory: str,  gridSize: Tuple[int, int], fileNamePattern: str):
+    def stitch(self, directory: str,  gridSize: Tuple[int, int], fileNamePattern: str, logDirectory: str = None):
         stitchString = self._genStitchString(gridSize, 10, (0, 0), directory, fileNamePattern)
         imJCmd = f'''{stitchString}
                 run('Apply LUT');
                 run('8-bit');
                 saveAs('Jpeg', '{directory}.jpg');
                 close();'''
-
-        self.process.append(self.runImJCmd(imJCmd, directory))
+        self.runImJCmd(imJCmd, logDirectory=logDirectory)
 
     def __enter__(self):
         return self
@@ -60,8 +59,8 @@ class ImageJStitcher:
         if logDirectory is None:
             proc = subprocess.Popen(self.imjPath + ' --headless --console -eval ' + imJCmd, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
         else:
-            with open(os.path.join(logDirectory, 'stdoutlog.txt'), 'a') as f, open(os.path.join(logDirectory, 'stderrlog.txt'), 'a') as f2:
+            with open(os.path.join(logDirectory, f'stdoutlog_{len(self.process)}.txt'), 'a') as f, open(os.path.join(logDirectory, f'stderrlog_{len(self.process)}.txt'), 'a') as f2:
                 f.write('New Process\n')
                 f2.write('New Process\n')
                 proc = subprocess.Popen(self.imjPath + ' --headless --console -eval ' + imJCmd, stdout=f, stderr=f2, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
-        return proc
+        self.process.append(proc)
