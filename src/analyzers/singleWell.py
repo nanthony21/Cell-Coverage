@@ -78,7 +78,7 @@ class SingleWellCoverageAnalyzer:
             if self.debug:
                 figs = []
                 figs.append(plt.figure())
-                plt.imshow(standard_img, cmap='gray')
+                plt.imshow(standard_img, clim=[np.percentile(standard_img, 1), np.percentile(standard_img, 99)], cmap='gray')
                 plt.imshow(np.logical_not(background_mask), alpha=0.6, clim=[0, 1], cmap='Reds')
                 plt.title("Red = analyzed area")
                 figs.append(plt.figure())
@@ -91,6 +91,8 @@ class SingleWellCoverageAnalyzer:
                 plt.title("FFC Image")
                 figs.append(plt.figure())
                 plt.imshow(morph_img)
+                plt.title("0=Cell, 1=Blank, 2=Ignored")
+                plt.colorbar()
                 figs.append(plt.figure())
                 plt.imshow(variance, clim=(0, np.percentile(variance, 99)))
                 plt.colorbar()
@@ -174,8 +176,8 @@ if __name__ == '__main__':
     import sys
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\High conf\BottomLeft_1\Ana2',
-                                    wellPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\High conf\BottomLeft_1',
+    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1\Ana2',
+                                    wellPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1',
                                     ffcPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr\BottomLeft_1',
                                     centerImgLocation=(0,6),
                                     edgeImgLocation=(1,1),
