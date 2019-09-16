@@ -2,10 +2,12 @@ import cv2 as cv
 import numpy as np
 from scipy import ndimage
 from typing import Tuple
+import matplotlib.pyplot as plt
 
+# TODO remove small components of mask
 
 class SingleImageAnalyzer:
-    def __init__(self, darkCount: int, rotate90: int, image: np.ndarray, flatField: np.ndarray):
+    def __init__(self, darkCount: int, rotate90: int, image: np.ndarray, flatField: np.ndarray, debug: bool = False):
         self.darkCount = darkCount
         self.rot90 = rotate90
         self.img = image
@@ -14,16 +16,29 @@ class SingleImageAnalyzer:
         self.ffc -= self.darkCount
         self.img = np.rot90(self.img, self.rot90)
         self.ffc = np.rot90(self.ffc, self.rot90)
+        self.debug = debug
+        self.figs = []
 
     def run(self, ffcMean: float, ffcStd: float, cellThresh: float, ffcThresh: float):
         std = self.getStandardizedImage(ffcMean, ffcStd)
         backgroundMask = self.calculateBackground(cellThresh, ffcThresh)
-        morph_img, variance = self.analyze_img(std, backgroundMask)
+        morph_img = self.analyze_img(std, backgroundMask)
         # Keep track of areas to calculate coverage
         removed_area = np.count_nonzero(morph_img == 2)
         background_area = np.count_nonzero(morph_img == 1)
         cell_area = np.count_nonzero(morph_img == 0)
-        return std, variance, backgroundMask, morph_img, removed_area, background_area, cell_area
+        if self.debug:
+            self.figs.append(plt.figure())
+            plt.imshow(std, clim=[np.percentile(std, 1), np.percentile(std, 99)],
+                       cmap='gray')
+            plt.imshow(np.logical_not(backgroundMask), alpha=0.6, clim=[0, 1], cmap='Reds')
+            plt.title("Red = Ignored area")
+            plt.show(block=False)
+            while all([plt.fignum_exists(fig.number) for fig in self.figs]):
+                [fig.canvas.flush_events() for fig in self.figs]
+            plt.close('all')
+            self.figs = []
+        return std, backgroundMask, morph_img, removed_area, background_area, cell_area
 
     def getStandardizedImage(self, ffcMean, ffcStd):
         corrected = ((self.img * ffcMean) / self.ffc).astype(np.uint16)
@@ -35,10 +50,23 @@ class SingleImageAnalyzer:
         ffc_mask = cv.threshold(self.ffc, flatFieldThreshold, 65535, cv.THRESH_BINARY)[1]
         corr_mask = cv.threshold(self.img, imageThreshold, 65535, cv.THRESH_BINARY)[1]
         backgroundMask = ffc_mask * corr_mask #TODO this seems to work but i don't know why. shouldn't it be an OR operation?
+        if self.debug:
+            fig,ax = plt.subplots()
+            im = ax.imshow(ffc_mask, clim=[0, 1])
+            fig.colorbar(im)
+            fig.suptitle("FFC Mask. 0=Ignored Area")
+            fig2, ax2 = plt.subplots()
+            im = ax2.imshow(corr_mask, clim=[0, 1])
+            fig2.colorbar(im)
+            fig2.suptitle("Img Mask. 0=Ignored Area")
+            fig3, ax3 = plt.subplots()
+            n, bins, patches = ax3.hist(self.img.flatten(), bins=100)
+            ax3.vlines(imageThreshold, 0, max(n))
+            fig3.suptitle("Image Hist")
+            self.figs += [fig, fig2, fig3]
         return backgroundMask
 
-    @staticmethod
-    def analyze_img(img: np.ndarray, mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def analyze_img(self, img: np.ndarray, mask: np.ndarray) -> np.ndarray:
         """Segment out cells from background. Returns a binary uint8 array. 0 is background, 1 is cells"""
 
         def remove_component(img, min_size):
@@ -74,14 +102,23 @@ class SingleImageAnalyzer:
             sqrMean = cv.filter2D(img * img, cv.CV_32F, mask)
             return (sqrMean - mean * mean)  # Variance is the mean of the square minus the square of the mean.
 
-        var_img = calculateLocalVariance(img, 2)  # calculate Variance Map
-        bin_var_img = cv.threshold(var_img, 0.015, 255, cv.THRESH_BINARY)[1]  # Use Otsu to calculate binary threshold and binarize #TODO this isn't otsu
+        variance = calculateLocalVariance(img, 2)  # calculate Variance Map
+        bin_var_img = cv.threshold(variance, 0.015, 255, cv.THRESH_BINARY)[1]  # Use Otsu to calculate binary threshold and binarize #TODO this isn't otsu
         bin_var_img = bin_var_img.astype(np.uint8)
         bin_var_img[bin_var_img == 0] = 1  # flip background and foreground
         bin_var_img[bin_var_img == 255] = 0
-        bin_var_img[~mask.astype(bool)] = 2 #Use a third value to show regions that are considered to be outside the dish
+        bin_var_img[~mask.astype(bool)] = 2  # Use a third value to show regions that are considered to be outside the dish
         kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))  # Set kernels for morphological operations and CC
         morph_img = remove_component(bin_var_img, 100)  # Erode->Remove small features->dilate
-        morph_img[~mask.astype(bool)] = 2 #Use a third value to show regions that are considered to be outside the dish
+        morph_img[~mask.astype(bool)] = 2  # Use a third value to show regions that are considered to be outside the dish
         morph_img = cv.dilate(morph_img, kernel_dil)
-        return morph_img, var_img
+        if self.debug:
+            self.figs.append(plt.figure())
+            plt.imshow(variance, clim=(0, np.percentile(variance, 99)))
+            plt.colorbar()
+            plt.title("Variance")
+            self.figs.append(plt.figure())
+            plt.imshow(morph_img)
+            plt.title("0=Cell, 1=Blank, 2=Ignored")
+            plt.colorbar()
+        return morph_img

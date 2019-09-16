@@ -73,35 +73,8 @@ class SingleWellCoverageAnalyzer:
             ffc_img, _ = utility.loadImage(location, self.ffcPath)
             cell_img, _ = utility.loadImage(location, self.wellPath)
 
-            analyzer = SingleImageAnalyzer(self.darkCount, self.rot, cell_img, ffc_img)
-            standard_img, variance, background_mask, morph_img, removed_area, background_area, cell_area = analyzer.run(ffc_mean, ffc_std, cell_thresh, ffc_thresh)
-            if self.debug:
-                figs = []
-                figs.append(plt.figure())
-                plt.imshow(standard_img, clim=[np.percentile(standard_img, 1), np.percentile(standard_img, 99)], cmap='gray')
-                plt.imshow(np.logical_not(background_mask), alpha=0.6, clim=[0, 1], cmap='Reds')
-                plt.title("Red = analyzed area")
-                figs.append(plt.figure())
-                n, bins, patches = plt.hist(cell_img.flatten(), bins=100)
-                plt.vlines(cell_thresh, 0, max(n))
-                plt.title("Cell Image")
-                figs.append(plt.figure())
-                n, bins, patches = plt.hist(ffc_img.flatten(), bins=100)
-                plt.vlines(ffc_thresh, 0, max(n))
-                plt.title("FFC Image")
-                figs.append(plt.figure())
-                plt.imshow(morph_img)
-                plt.title("0=Cell, 1=Blank, 2=Ignored")
-                plt.colorbar()
-                figs.append(plt.figure())
-                plt.imshow(variance, clim=(0, np.percentile(variance, 99)))
-                plt.colorbar()
-                plt.title("Variance")
-                plt.show(block=False)
-                while all([plt.fignum_exists(fig.number) for fig in figs]):
-                    [fig.canvas.flush_events() for fig in figs]
-                plt.close('all')
-
+            analyzer = SingleImageAnalyzer(self.darkCount, self.rot, cell_img, ffc_img, debug=self.debug)
+            standard_img, background_mask, morph_img, removed_area, background_area, cell_area = analyzer.run(ffc_mean, ffc_std, cell_thresh, ffc_thresh)
 
             # Keep track of areas to calculate coverage
             Removed_area += removed_area
@@ -121,7 +94,7 @@ class SingleWellCoverageAnalyzer:
             rgboutline[:, :, 0] = outline
             outlinedImg[rgboutline] = 255
             background = np.zeros((*outline.shape, 3), dtype=np.bool)
-            background[:,:,0] = (morph_img == 2)
+            background[:, :, 0] = (morph_img == 2)
             outlinedImg[background] = 0
             imageio.imwrite(osp.join(self.outPath, Names.outline, fileName), outlinedImg)
 
@@ -131,6 +104,7 @@ class SingleWellCoverageAnalyzer:
 
         self.stitcher.stitch(os.path.join(self.outPath, Names.outline), tileSize, "{xxx}_{yyy}.tif")
         self.stitcher.stitch(os.path.join(self.outPath, Names.binary), tileSize, "{xxx}_{yyy}.tif")
+        self.stitcher.stitch(os.path.join(self.outPath, Names.corrected), tileSize, '{xxx}_{yyy}.tif')
         return results
 
     @staticmethod
@@ -172,17 +146,17 @@ class SingleWellCoverageAnalyzer:
 
 
 if __name__ == '__main__':
-    stitcher = ImageJStitcher(r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe')
     import sys
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1\Ana2',
-                                    wellPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1',
-                                    ffcPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr\BottomLeft_1',
-                                    centerImgLocation=(0,6),
-                                    edgeImgLocation=(1,1),
-                                    darkCount=624,
-                                    stitcher=stitcher,
-                                    rotate90=1,
-                                    debug=True)
-    an.run()
+    with ImageJStitcher(r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe') as stitcher:
+        an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1\Ana3',
+                                        wellPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1',
+                                        ffcPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr\BottomLeft_1',
+                                        centerImgLocation=(0, 6),
+                                        edgeImgLocation=(1, 1),
+                                        darkCount=624,
+                                        stitcher=stitcher,
+                                        rotate90=1,
+                                        debug=False)
+        an.run()

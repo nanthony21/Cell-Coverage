@@ -16,7 +16,7 @@ class ImageJStitcher:
         self.process = [] #The last subprocess ran.
 
     def stitch(self, directory: str,  gridSize: Tuple[int, int], fileNamePattern: str):
-        stitchString = self._genStitchString(gridSize, 10, (0,0), directory, fileNamePattern)
+        stitchString = self._genStitchString(gridSize, 10, (0, 0), directory, fileNamePattern)
         imJCmd = f'''{stitchString}
                 run('Apply LUT');
                 run('8-bit');
