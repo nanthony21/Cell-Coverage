@@ -63,5 +63,5 @@ class ImageJStitcher:
             with open(os.path.join(logDirectory, 'stdoutlog.txt'), 'a') as f, open(os.path.join(logDirectory, 'stderrlog.txt'), 'a') as f2:
                 f.write('New Process\n')
                 f2.write('New Process\n')
-                proc = subprocess.Popen(self.imjPath + ' --headless --console -eval ' + imJCmd, stdout = f, stderr = f2, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                proc = subprocess.Popen(self.imjPath + ' --headless --console -eval ' + imJCmd, stdout=f, stderr=f2, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
         return proc

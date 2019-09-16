@@ -74,22 +74,33 @@ class SingleWellCoverageAnalyzer:
             cell_img, _ = utility.loadImage(location, self.wellPath)
 
             analyzer = SingleImageAnalyzer(self.darkCount, self.rot, cell_img, ffc_img)
-            standard_img, background_mask, morph_img, removed_area, background_area, cell_area = analyzer.run(ffc_mean, ffc_std, cell_thresh, ffc_thresh)
+            standard_img, variance, background_mask, morph_img, removed_area, background_area, cell_area = analyzer.run(ffc_mean, ffc_std, cell_thresh, ffc_thresh)
             if self.debug:
-                plt.figure()
+                figs = []
+                figs.append(plt.figure())
                 plt.imshow(standard_img, cmap='gray')
                 plt.imshow(np.logical_not(background_mask), alpha=0.6, clim=[0, 1], cmap='Reds')
-                plt.figure()
+                plt.title("Red = analyzed area")
+                figs.append(plt.figure())
                 n, bins, patches = plt.hist(cell_img.flatten(), bins=100)
                 plt.vlines(cell_thresh, 0, max(n))
                 plt.title("Cell Image")
-                plt.figure()
+                figs.append(plt.figure())
                 n, bins, patches = plt.hist(ffc_img.flatten(), bins=100)
                 plt.vlines(ffc_thresh, 0, max(n))
                 plt.title("FFC Image")
-                plt.figure()
+                figs.append(plt.figure())
                 plt.imshow(morph_img)
+                figs.append(plt.figure())
+                plt.imshow(variance, clim=(0, np.percentile(variance, 99)))
+                plt.colorbar()
+                plt.title("Variance")
                 plt.show(block=False)
+                while all([plt.fignum_exists(fig.number) for fig in figs]):
+                    [fig.canvas.flush_events() for fig in figs]
+                plt.close('all')
+
+
             # Keep track of areas to calculate coverage
             Removed_area += removed_area
             Background_area += background_area
@@ -163,13 +174,13 @@ if __name__ == '__main__':
     import sys
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\BottomLeft_1\Ana',
-                                    wellPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\BottomLeft_1',
-                                    ffcPath=r'H:\HT29 coverage myo + cele (8-26-19)\Flat field corr 48h\BottomLeft_1',
+    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\High conf\BottomLeft_1\Ana2',
+                                    wellPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\High conf\BottomLeft_1',
+                                    ffcPath=r'H:\HT29 coverage (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr\BottomLeft_1',
                                     centerImgLocation=(0,6),
                                     edgeImgLocation=(1,1),
                                     darkCount=624,
                                     stitcher=stitcher,
-                                    rotate90=0,
-                                    debug=False)
+                                    rotate90=1,
+                                    debug=True)
     an.run()

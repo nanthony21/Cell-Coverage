@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 from scipy import ndimage
+from typing import Tuple
 
 
 class SingleImageAnalyzer:
@@ -17,12 +18,12 @@ class SingleImageAnalyzer:
     def run(self, ffcMean: float, ffcStd: float, cellThresh: float, ffcThresh: float):
         std = self.getStandardizedImage(ffcMean, ffcStd)
         backgroundMask = self.calculateBackground(cellThresh, ffcThresh)
-        morph_img = self.analyze_img(std, backgroundMask)
+        morph_img, variance = self.analyze_img(std, backgroundMask)
         # Keep track of areas to calculate coverage
         removed_area = np.count_nonzero(morph_img == 2)
         background_area = np.count_nonzero(morph_img == 1)
         cell_area = np.count_nonzero(morph_img == 0)
-        return std, backgroundMask, morph_img, removed_area, background_area, cell_area
+        return std, variance, backgroundMask, morph_img, removed_area, background_area, cell_area
 
     def getStandardizedImage(self, ffcMean, ffcStd):
         corrected = ((self.img * ffcMean) / self.ffc).astype(np.uint16)
@@ -37,7 +38,7 @@ class SingleImageAnalyzer:
         return backgroundMask
 
     @staticmethod
-    def analyze_img(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    def analyze_img(img: np.ndarray, mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Segment out cells from background. Returns a binary uint8 array. 0 is background, 1 is cells"""
 
         def remove_component(img, min_size):
@@ -83,4 +84,4 @@ class SingleImageAnalyzer:
         morph_img = remove_component(bin_var_img, 100)  # Erode->Remove small features->dilate
         morph_img[~mask.astype(bool)] = 2 #Use a third value to show regions that are considered to be outside the dish
         morph_img = cv.dilate(morph_img, kernel_dil)
-        return morph_img
+        return morph_img, var_img
