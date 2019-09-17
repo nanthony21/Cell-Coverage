@@ -40,4 +40,5 @@ class OutputOptions(Enum):
     Full = 0xFF
     Outline = 0x02
     Binary = 0x04
-    Corrected = 0x06
+    Corrected = 0x08
+    ResultsJson = 0x0F

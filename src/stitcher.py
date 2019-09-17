@@ -1,7 +1,7 @@
 import numpy as np
 
 class Stitcher:
-    def  __init__(self, imageGrig: np.ndarray, overlap: float, invertX: bool = False, invertY: bool = False):
+    def __init__(self, imageGrig: np.ndarray, overlap: float, invertX: bool = False, invertY: bool = False):
         self.images = imageGrig
         self.overlap = overlap
         self.invX = invertX
@@ -18,10 +18,8 @@ class Stitcher:
                 hpos = int(imShape[1]*(self.images.shape[1]-j-1)*s) if self.invX else int(imShape[1]*j*s)
                 output[vpos:vpos+imShape[0], hpos:hpos+imShape[1]] = img
         if np.all(output[-1,:] == 0):
-            print('cropping y')
             output = output[:-1,:]
         if np.all(output[:,-1] == 0):
-            print('cropping x')
             output = output[:,:-1]
         return output
 
