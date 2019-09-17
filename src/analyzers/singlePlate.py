@@ -51,7 +51,7 @@ class SinglePlateAnalyzer:
                                               ffcPath=os.path.join(self.ffcPath, wellFolder),
                                               darkCount=self.darkCount,
                                               rotate90=self.rot,
-                                              outputOption=OutputOptions.Outline and OutputOptions.Binary)
+                                              outputOption=OutputOptions.Outline | OutputOptions.Binary)
             maskPath = os.path.join(self.platePath, 'masks', f'{wellFolder}.h5')
             if os.path.exists(maskPath):
                 with h5py.File(maskPath, 'r') as f:
@@ -79,4 +79,4 @@ if __name__ == '__main__':
                                 ffcPath=r'H:\HT29 coverage (8-20-19)\Flat field corr',
                                 darkCount=624,
                                 rotate90=1)
-    plate.run()
+    results = plate.run()

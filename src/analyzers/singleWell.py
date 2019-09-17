@@ -1,7 +1,7 @@
 import json
 import os
 import shutil
-from enum import Enum
+from enum import IntFlag
 from glob import glob
 from os import path as osp
 import cv2 as cv
@@ -18,12 +18,12 @@ from src import utility
 from pwspy.utility.matplotlibwidg import AdjustableSelector, MyEllipse
 from PIL import Image
 
-class OutputOptions(Enum):
+class OutputOptions(IntFlag):
     Full = 0xFF
-    Outline = 0x02
-    Binary = 0x04
-    Corrected = 0x08
-    ResultsJson = 0x0F
+    Outline = 0x01
+    Binary = 0x02
+    Corrected = 0x04
+    ResultsJson = 0x08
 
 class SingleWellCoverageAnalyzer:
     def __init__(self, outPath: str, wellPath: str, ffcPath: str, darkCount: int,
@@ -75,13 +75,13 @@ class SingleWellCoverageAnalyzer:
         morph_img[~mask] = 2 #We now have a trinary array. (cell, background, ignored)
         # Write images to file
         with open(os.path.join(self.outPath, 'readme.txt'), 'w') as txtfile:
-            if self.outputOption.value & OutputOptions.Binary.value:
+            if self.outputOption & OutputOptions.Binary:
                 imageio.imwrite(osp.join(self.outPath, f'{Names.binary}.tif'), morph_img*127) #We multiply by 127 to use the whole 255 color range.
                 txtfile.write("Binary: Black is cells, gray is background, white was not analyzed.\n\n")
-            if self.outputOption.value & OutputOptions.Corrected.value:
+            if self.outputOption & OutputOptions.Corrected:
                 imageio.imwrite(osp.join(self.outPath, f'{Names.corrected}.tif'), stdImg.astype(np.float32))
                 txtfile.write("Corrected: Recommend opening this in ImageJ. This is the raw data after being normalized by the flat field correction.\n\n")
-            if self.outputOption.value & OutputOptions.Outline.value:
+            if self.outputOption & OutputOptions.Outline:
                 # Add segmentation outline to corrected image
                 outlinedImg = np.zeros((stdImg.shape[0], stdImg.shape[1], 3))
                 outlinedImg[:, :, :] = stdImg[:, :, None] #Extend to 3rd dimension to make it RGB.
@@ -103,7 +103,7 @@ class SingleWellCoverageAnalyzer:
         results = {'coverage': 100 * cellArea / (cellArea + backgroundArea),
                    'ffcMean': ffcMean,
                    'ffcStdDev': ffcStd}
-        if self.outputOption.value & OutputOptions.ResultsJson.value:
+        if self.outputOption & OutputOptions.ResultsJson:
             with open(os.path.join(self.outPath, 'output.json'), 'w') as file:
                 json.dump(results, file, indent=4)
         print(f"The coverage is {results['coverage']} %")
