@@ -2,7 +2,6 @@ from typing import Tuple
 from glob import glob
 import os
 import cv2
-from enum import Enum, auto
 
 
 def loadImage(location: Tuple[int, int], path: str):
@@ -36,9 +35,3 @@ class Names:
     analyzed = 'analyzed'
 
 
-class OutputOptions(Enum):
-    Full = 0xFF
-    Outline = 0x02
-    Binary = 0x04
-    Corrected = 0x08
-    ResultsJson = 0x0F

@@ -1,10 +1,9 @@
 import json
 import os
 import shutil
+from enum import Enum
 from glob import glob
 from os import path as osp
-from typing import Tuple
-
 import cv2 as cv
 import imageio
 import numpy as np
@@ -12,17 +11,22 @@ from PyQt5.QtWidgets import QMessageBox
 from matplotlib import pyplot as plt
 from pwspy.dataTypes import Roi
 from scipy import ndimage
-
 from src.stitcher import Stitcher
-from src.utility import Names, OutputOptions
+from src.utility import Names
 from src.imageJStitching import ImageJStitcher
 from src import utility
 from pwspy.utility.matplotlibwidg import AdjustableSelector, MyEllipse
 from PIL import Image
 
+class OutputOptions(Enum):
+    Full = 0xFF
+    Outline = 0x02
+    Binary = 0x04
+    Corrected = 0x08
+    ResultsJson = 0x0F
 
 class SingleWellCoverageAnalyzer:
-    def __init__(self, outPath: str, wellPath: str, ffcPath: str, centerImgLocation: Tuple[int, int], edgeImgLocation: Tuple[int, int], darkCount: int,
+    def __init__(self, outPath: str, wellPath: str, ffcPath: str, darkCount: int,
                  rotate90: int = 0, outputOption: OutputOptions = OutputOptions.Full, varianceThreshold: float = 0.01):
         """root: Root folder for experiment."""
         self.wellPath = wellPath
@@ -32,6 +36,9 @@ class SingleWellCoverageAnalyzer:
         self.rot = rotate90
         self.outputOption = outputOption
         self.varianceThreshold = varianceThreshold
+
+        self.img = self._loadImage(self.wellPath)
+        self.ffc = self._loadImage(self.ffcPath)
 
     def _loadImage(self, path: str):
         fileNames = [os.path.split(path)[-1] for path in glob(osp.join(path, '*' + Names.prefix + '*'))]
@@ -47,7 +54,7 @@ class SingleWellCoverageAnalyzer:
         img -= self.darkCount
         return img
 
-    def run(self):
+    def run(self, mask: np.ndarray) -> dict:
         if osp.exists(self.outPath):
             button = QMessageBox.question(None, 'Hey', f'Analysis folder already exists. Delete and continue?\n\n {self.outPath}')
             if button == QMessageBox.Yes:
@@ -56,13 +63,8 @@ class SingleWellCoverageAnalyzer:
                 return
         os.mkdir(self.outPath)
 
-
-        # loop through cell images
-        img = self._loadImage(self.wellPath)
-        ffc = self._loadImage(self.ffcPath)
-        mask = self.selectWorkArea(img) # This sets the self.mask vriable
-        ffcMean, ffcStd = ffc[mask].mean(), ffc[mask].std()
-        stdImg = img * ffcMean / ffc
+        ffcMean, ffcStd = self.ffc[mask].mean(), self.ffc[mask].std()
+        stdImg = self.img * ffcMean / self.ffc
         stdImg = (stdImg - ffcMean) / ffcStd #An image that has been standardized by the flatfield correction.
         var = self.calculateLocalVariance(stdImg, 2)
         varMask = var > self.varianceThreshold
@@ -71,9 +73,6 @@ class SingleWellCoverageAnalyzer:
         kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))  # Set kernels for morphological operations and CC
         morph_img = cv.dilate(morph_img.astype(np.uint8), kernel_dil) #This dilation helps the mask actually line up with the cells better.
         morph_img[~mask] = 2 #We now have a trinary array. (cell, background, ignored)
-        fig, axs = plt.subplots(1, 2, sharex='all', sharey='all')
-        axs[0].imshow(morph_img)
-        axs[1].imshow(stdImg)
         # Write images to file
         with open(os.path.join(self.outPath, 'readme.txt'), 'w') as txtfile:
             if self.outputOption.value & OutputOptions.Binary.value:
@@ -104,7 +103,7 @@ class SingleWellCoverageAnalyzer:
         results = {'coverage': 100 * cellArea / (cellArea + backgroundArea),
                    'ffcMean': ffcMean,
                    'ffcStdDev': ffcStd}
-        if self.outputOption.value & OutputOptions.ResultsJson:
+        if self.outputOption.value & OutputOptions.ResultsJson.value:
             with open(os.path.join(self.outPath, 'output.json'), 'w') as file:
                 json.dump(results, file, indent=4)
         print(f"The coverage is {results['coverage']} %")
@@ -114,7 +113,6 @@ class SingleWellCoverageAnalyzer:
     def calculateLocalVariance(img, dist):
         """Creates a map of the spatial variance
         in a neighborhood of radius `dist` pixels in img"""
-
         def circularMask(radius):
             """Create a circular boolean mask with a radius of `dist`."""
             output_mask = np.ones([radius * 2 + 1, radius * 2 + 1], dtype=np.uint16)  # Initialize output mask
@@ -125,7 +123,6 @@ class SingleWellCoverageAnalyzer:
             output_mask[dist_map > radius] = 0
             output_mask[dist_map <= radius] = 1
             return output_mask
-
         img = img.astype(np.float32)
         mask = circularMask(dist)
         mask = mask / mask.sum()  # Normalize the mask to 1
@@ -142,19 +139,16 @@ class SingleWellCoverageAnalyzer:
         img2 = np.zeros((output.shape))  # output_img
         selected = np.array(np.where(sizes[1:]>=min_size)) + 1
         img2[np.isin(output, selected)] = 1
-        # for i in range(1, nb_components):  # for every component in the image, you keep it only if it's above min_size. We start at 1 because 0 is the backgroud which we don't care about.
-        #     if sizes[i] >= min_size:
-        #         img2[output == i] = 1
         return img2.astype(img.dtype)
 
-    def selectWorkArea(self, img: np.ndarray) -> np.ndarray:
-        downSampleScaler = max([img.shape[0]//1024, img.shape[1]//1024])
-        dsimg = img[::downSampleScaler, ::downSampleScaler]
-        mask = None
+    def selectAnalysisArea(self) -> np.ndarray:
+        downSampleScaler = max([self.img.shape[0]//1024, self.img.shape[1]//1024])
+        dsimg = self.img[::downSampleScaler, ::downSampleScaler] # The Roi.fromVerts process takes forever on a huge stitched image. downsample to 1024,1024 then upsample back up.
+        mask = [None] #Using a list since its mutable
         def finish(verts):
             r = Roi.fromVerts('doesntmatter', 0, verts=np.array(verts), dataShape=dsimg.shape)
-            mask = r.mask
-            mask = np.array(Image.fromarray(mask).resize((img.shape[1], img.shape[0]))) #Upsample back to full resolution
+            Mask = r.mask
+            mask[0] = np.array(Image.fromarray(Mask).resize((self.img.shape[1], self.img.shape[0]))) #Upsample back to full resolution
         fig, ax = plt.subplots()
         fig.suptitle("Select the analysis region. Close to proceed.")
         im = ax.imshow(dsimg, clim=[np.percentile(dsimg, 1), np.percentile(dsimg, 99)], cmap='gray')
@@ -163,9 +157,7 @@ class SingleWellCoverageAnalyzer:
         fig.show()
         while plt.fignum_exists(fig.number):
             fig.canvas.flush_events()
-        return mask
-
-
+        return mask[0]
 
 
 if __name__ == '__main__':
@@ -176,10 +168,8 @@ if __name__ == '__main__':
         an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage (8-20-19)\Low conf\BottomLeft_1\Ana4',
                                         wellPath=r'H:\HT29 coverage (8-20-19)\Low conf\BottomLeft_1',
                                         ffcPath=r'H:\HT29 coverage (8-20-19)\Flat field corr\BottomLeft_1',
-                                        centerImgLocation=(0, 6),
-                                        edgeImgLocation=(1, 11),
                                         darkCount=624,
-                                        stitcher=stitcher,
                                         rotate90=1,
                                         outputOption=OutputOptions.Outline)
-        an.run()
+        mask = an.selectAnalysisArea()
+        an.run(mask)

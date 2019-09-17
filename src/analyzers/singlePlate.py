@@ -1,35 +1,23 @@
-import json
-from typing import Tuple, List
-import re
-from PyQt5.QtWidgets import QMessageBox
 
-from src.analyzers.singleWell import SingleWellCoverageAnalyzer
-from src.imageJStitching import ImageJStitcher
+import h5py
+from PyQt5.QtWidgets import QMessageBox
+from src.analyzers.singleWell import SingleWellCoverageAnalyzer, OutputOptions
 import os
 import shutil
 from glob import glob
 from src.utility import Names
 from src import utility
-import matplotlib.pyplot as plt
+import numpy as np
 
 class SinglePlateAnalyzer:
-    def __init__(self, outPath: str, platePath: str, ffcPath: str, darkCount: int,
-                 stitcher: ImageJStitcher, rotate90: int = 0, debug: bool = False):
+    def __init__(self, platePath: str, ffcPath: str, darkCount: int, rotate90: int = 0):
         self.darkCount = darkCount
-        self.stitcher = stitcher
         self.rot = rotate90
-        self.debug = debug
-        self.outPath = outPath
+        self.outPath = os.path.join(platePath, 'Analysis')
         self.platePath = platePath
         self.ffcPath = ffcPath
-        if not os.path.exists(os.path.join(self.platePath, 'plateConfig.json')):
-            QMessageBox.information(None, 'On No', f'Could not find a `plateConfig.json` file in {self.platePath}')
-            raise Exception("plateConfig.json missing.")
-        with open(os.path.join(self.platePath, 'plateConfig.json')) as f:
-            self.plateConfig = json.load(f)
         plateStructure = self.detectPlateFolderStructure(platePath)
         ffcStructure = self.detectPlateFolderStructure(ffcPath)
-        assert all([any([re.match(pattern, name) for name in plateStructure.keys()]) for pattern in self.plateConfig.keys()]), "The subdirectory names in `plateConfig.json` could not be matched to the folder structure."
         assert plateStructure.keys() == ffcStructure.keys()
         for k, v in plateStructure.items():
             assert ffcStructure[k] == v, f"For Well {k}: plate has locations: {v}, but flatField has locations: {ffcStructure[k]}"
@@ -42,6 +30,7 @@ class SinglePlateAnalyzer:
                 shutil.rmtree(self.outPath)
             else:
                 return
+        os.mkdir(self.outPath)
 
     @staticmethod
     def detectPlateFolderStructure(path: str):
@@ -54,37 +43,40 @@ class SinglePlateAnalyzer:
         return d
 
     def run(self):
+        results = {}
         for i, wellFolder in enumerate(self.plateStructure.keys()):
             print(wellFolder)
-            config = [v for k,v in self.plateConfig.items() if re.match(k, wellFolder)][0]
             well = SingleWellCoverageAnalyzer(outPath=os.path.join(self.outPath, wellFolder),
-                                       wellPath=os.path.join(self.platePath, wellFolder),
-                                       ffcPath=os.path.join(self.ffcPath, wellFolder),
-                                       centerImgLocation=config['Center'],
-                                       edgeImgLocation=config['Edge'],
-                                       darkCount=self.darkCount,
-                                       stitcher=self.stitcher,
-                                       rotate90=self.rot,
-                                       debug=self.debug)
-            well.run()
-            if self.debug:
-                print(f"Press ctrl+c to when done with well {wellFolder}: ")
-                try:
-                    while True:
-                        plt.pause(0.05)
-                except KeyboardInterrupt:
-                    print("continuing.")
+                                              wellPath=os.path.join(self.platePath, wellFolder),
+                                              ffcPath=os.path.join(self.ffcPath, wellFolder),
+                                              darkCount=self.darkCount,
+                                              rotate90=self.rot,
+                                              outputOption=OutputOptions.Outline and OutputOptions.Binary)
+            maskPath = os.path.join(self.platePath, 'masks', f'{wellFolder}.h5')
+            if os.path.exists(maskPath):
+                with h5py.File(maskPath, 'r') as f:
+                    mask = np.array(f['mask'])
+                print("Loading saved mask.")
+            else:
+                print("Could not find saved mask")
+                mask = well.selectAnalysisArea()
+                if not os.path.exists(os.path.join(self.platePath, 'masks')):
+                    os.mkdir(os.path.join(self.platePath, 'masks'))
+                with h5py.File(maskPath, 'w') as f:
+                    f.create_dataset('mask', dtype=np.bool, data=mask, compression='gzip')
+            results[wellFolder] = well.run(mask)
+        with open(os.path.join(self.outPath, 'results.csv'), 'w') as f:
+            for well, result in results.items():
+                f.write(f"{well}, {result['coverage']}\n")
+        return results
 
 if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication
     import sys
     app = QApplication(sys.argv)
-    with ImageJStitcher(r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe') as stitcher:
-        plate = SinglePlateAnalyzer(outPath=r'H:\HT29 coverage myo + cele (8-26-19)\48h\Analyzeddd',
-                                    platePath=r'H:\HT29 coverage myo + cele (8-26-19)\48h',
-                                    ffcPath=r'H:\HT29 coverage myo + cele (8-26-19)\Flat field corr 48h',
-                                    darkCount=624,
-                                    stitcher=stitcher,
-                                    rotate90=1,
-                                    debug=False)
-        plate.run()
+    plate = SinglePlateAnalyzer(
+                                platePath=r'H:\HT29 coverage (8-20-19)\Low conf',
+                                ffcPath=r'H:\HT29 coverage (8-20-19)\Flat field corr',
+                                darkCount=624,
+                                rotate90=1)
+    plate.run()
