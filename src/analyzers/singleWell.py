@@ -13,7 +13,6 @@ from pwspy.dataTypes import Roi
 from scipy import ndimage
 from src.stitcher import Stitcher
 from src.utility import Names
-from src.imageJStitching import ImageJStitcher
 from src import utility
 from pwspy.utility.matplotlibwidg import AdjustableSelector, MyEllipse
 from PIL import Image

@@ -8,11 +8,20 @@ from glob import glob
 from src.utility import Names
 from src import utility
 import numpy as np
+from enum import Enum
+import src.masksPath
+
+
+class Masks(Enum):
+    """Used to select which mask files to use"""
+    SixWell = '6WellPlate'
+    Diy = None #Draw the masks yourself.
 
 class SinglePlateAnalyzer:
-    def __init__(self, platePath: str, ffcPath: str, darkCount: int, rotate90: int = 0):
+    def __init__(self, platePath: str, ffcPath: str, darkCount: int, maskOption: Masks, rotate90: int = 0):
         self.darkCount = darkCount
         self.rot = rotate90
+        self.maskOption = maskOption
         self.outPath = os.path.join(platePath, 'Analysis')
         self.platePath = platePath
         self.ffcPath = ffcPath
@@ -22,7 +31,6 @@ class SinglePlateAnalyzer:
         for k, v in plateStructure.items():
             assert ffcStructure[k] == v, f"For Well {k}: plate has locations: {v}, but flatField has locations: {ffcStructure[k]}"
         self.plateStructure = plateStructure
-
         if os.path.exists(self.outPath):
             button = QMessageBox.question(None, 'Hey',
                                           f'Analysis folder already exists. Delete and continue?\n\n {self.outPath}')
@@ -52,18 +60,18 @@ class SinglePlateAnalyzer:
                                               darkCount=self.darkCount,
                                               rotate90=self.rot,
                                               outputOption=OutputOptions.Outline | OutputOptions.Binary)
-            maskPath = os.path.join(self.platePath, 'masks', f'{wellFolder}.h5')
-            if os.path.exists(maskPath):
-                with h5py.File(maskPath, 'r') as f:
-                    mask = np.array(f['mask'])
-                print("Loading saved mask.")
-            else:
-                print("Could not find saved mask")
+            if self.maskOption == Masks.Diy:
+                print("Draw the analysis area")
                 mask = well.selectAnalysisArea()
                 if not os.path.exists(os.path.join(self.platePath, 'masks')):
                     os.mkdir(os.path.join(self.platePath, 'masks'))
-                with h5py.File(maskPath, 'w') as f:
+                with h5py.File(os.path.join(self.platePath, 'masks', f'{wellFolder}.h5'), 'w') as f:
                     f.create_dataset('mask', dtype=np.bool, data=mask, compression='gzip')
+            else:
+                maskPath = os.path.join(src.masksPath, self.maskOption.value, f'{wellFolder}.h5')
+                with h5py.File(maskPath, 'r') as f:
+                    mask = np.array(f['mask'])
+                print("Loaded saved mask.")
             results[wellFolder] = well.run(mask)
         with open(os.path.join(self.outPath, 'results.csv'), 'w') as f:
             for well, result in results.items():
