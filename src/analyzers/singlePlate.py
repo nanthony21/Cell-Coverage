@@ -19,11 +19,11 @@ class Masks(Enum):
     Diy = None #Draw the masks yourself.
 
 class SinglePlateAnalyzer:
-    def __init__(self, platePath: str, ffcPath: str, darkCount: int, maskOption: Masks, rotate90: int = 0):
+    def __init__(self, platePath: str, ffcPath: str, darkCount: int, maskOption: Masks, rotate90: int = 0, analysisFolderName = "Analysis"):
         self.darkCount = darkCount
         self.rot = rotate90
         self.maskOption = maskOption
-        self.outPath = os.path.join(platePath, 'Analysis')
+        self.outPath = os.path.join(platePath, analysisFolderName)
         self.platePath = platePath
         self.ffcPath = ffcPath
         plateStructure = self.detectPlateFolderStructure(platePath)
@@ -81,7 +81,7 @@ class SinglePlateAnalyzer:
             for well, result in results.items():
                 f.write(f"{well}, {result['coverage']}\n")
         with open(os.path.join(self.outPath, 'settings.json'), 'w') as f:
-            json.dump(f, {'kernelDiameter': kernelDiameter, 'minimumComponentSize': minimumComponentSize, 'varianceThreshold': varianceThreshold})
+            json.dump({'kernelDiameter': kernelDiameter, 'minimumComponentSize': minimumComponentSize, 'varianceThreshold': varianceThreshold}, f)
         return results
 
 if __name__ == '__main__':
@@ -93,5 +93,7 @@ if __name__ == '__main__':
                                 ffcPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr',
                                 darkCount=624,
                                 maskOption=Masks.SixWell,
-                                rotate90=2)
-    results = plate.run()
+                                rotate90=2,
+                                analysisFolderName="Analysis2",
+                                )
+    results = plate.run(kernelDiameter=3, varianceThreshold=0.06, minimumComponentSize=20)

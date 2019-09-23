@@ -10,7 +10,7 @@ import cv2
 
 class ParameterTester(SingleWellCoverageAnalyzer):
     def __init__(self,  outPath: str, wellPath: str, ffcPath: str, darkCount: int, rotate90: int = 0):
-        super().__init__(outPath, wellPath, ffcPath, darkCount, rotate90, outputOption=OutputOptions.Nothing, varianceThreshold=0.01)
+        super().__init__(outPath, wellPath, ffcPath, darkCount, rotate90, outputOption=OutputOptions.Nothing)
         self.window = QWidget()
         self.fig, self.ax = plt.subplots()
         self.canvas = FigureCanvasQTAgg(self.fig)
