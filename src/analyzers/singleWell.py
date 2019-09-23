@@ -23,6 +23,7 @@ class OutputOptions(IntFlag):
     Binary = 0x02
     Corrected = 0x04
     ResultsJson = 0x08
+    Nothing = 0x00
 
 class SingleWellCoverageAnalyzer:
     def __init__(self, outPath: str, wellPath: str, ffcPath: str, darkCount: int,
@@ -40,7 +41,9 @@ class SingleWellCoverageAnalyzer:
         self.ffc = self._loadImage(self.ffcPath)
 
     def _loadImage(self, path: str):
-        fileNames = [os.path.split(path)[-1] for path in glob(osp.join(path, '*' + Names.prefix + '*'))]
+        assert os.path.exists(path)
+        fileNames = [os.path.split(impath)[-1] for impath in glob(osp.join(path, '*' + Names.prefix + '*'))]
+        assert len(fileNames) > 0
         locations = [utility.getLocationFromFileName(name) for name in fileNames]
         tileSize = tuple(max(i) + 1 for i in zip(*locations))
         imgs = np.zeros((tileSize), dtype=object) # a 2d object array containing images by position.
@@ -53,6 +56,13 @@ class SingleWellCoverageAnalyzer:
         img -= self.darkCount
         return img
 
+    def _getStandardizedImg(self, mask: np.ndarray):
+        ffcMean, ffcStd = self.ffc[mask].mean(), self.ffc[mask].std()
+        stdImg = self.img * ffcMean / self.ffc
+        stdImg = (stdImg - ffcMean) / ffcStd #An image that has been standardized by the flatfield correction.
+        print(f"{np.percentile(stdImg[mask], 16)}, {np.percentile(stdImg[mask], 84)}")
+        return stdImg
+
     def run(self, mask: np.ndarray) -> dict:
         if osp.exists(self.outPath):
             button = QMessageBox.question(None, 'Hey', f'Analysis folder already exists. Delete and continue?\n\n {self.outPath}')
@@ -61,13 +71,9 @@ class SingleWellCoverageAnalyzer:
             else:
                 return
         os.mkdir(self.outPath)
-
-        ffcMean, ffcStd = self.ffc[mask].mean(), self.ffc[mask].std()
-        stdImg = self.img * ffcMean / self.ffc
-        stdImg = (stdImg - ffcMean) / ffcStd #An image that has been standardized by the flatfield correction.
+        stdImg = self._getStandardizedImg(mask)
         var = self.calculateLocalVariance(stdImg, 2)
-        varMask = var > self.varianceThreshold
-        varMask = np.logical_not(varMask) #Invert so that we are doing connectedComponents on the blank space.
+        varMask = var <= self.varianceThreshold #The mask is true where variance is below threshold. (background regions.)
         morph_img = self.removeSmallComponents(varMask, 100)  # Remove small features
         kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))  # Set kernels for morphological operations and CC
         morph_img = cv.dilate(morph_img.astype(np.uint8), kernel_dil) #This dilation helps the mask actually line up with the cells better.
@@ -99,9 +105,7 @@ class SingleWellCoverageAnalyzer:
         # Output and save coverage numbers
         cellArea = float(np.sum(morph_img == 0))
         backgroundArea = float(np.sum(morph_img == 1))
-        results = {'coverage': 100 * cellArea / (cellArea + backgroundArea),
-                   'ffcMean': ffcMean,
-                   'ffcStdDev': ffcStd}
+        results = {'coverage': 100 * cellArea / (cellArea + backgroundArea)}
         if self.outputOption & OutputOptions.ResultsJson:
             with open(os.path.join(self.outPath, 'output.json'), 'w') as file:
                 json.dump(results, file, indent=4)
