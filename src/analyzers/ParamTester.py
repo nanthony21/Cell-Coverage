@@ -6,6 +6,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
 from src.analyzers.singleWell import SingleWellCoverageAnalyzer, OutputOptions
 import numpy as np
+import cv2
 
 class ParameterTester(SingleWellCoverageAnalyzer):
     def __init__(self,  outPath: str, wellPath: str, ffcPath: str, darkCount: int, rotate90: int = 0):
@@ -13,7 +14,7 @@ class ParameterTester(SingleWellCoverageAnalyzer):
         self.window = QWidget()
         self.fig, self.ax = plt.subplots()
         self.canvas = FigureCanvasQTAgg(self.fig)
-        self.radiusSpinBox = QSpinBox(self.window)
+        self.diameterSpinBox = QSpinBox(self.window)
         self.thresholdSpinBox = QDoubleSpinBox(self.window)
         self.componentSizeSpinBox = QSpinBox(self.window)
         self.varShowButton = QPushButton("Show Variance")
@@ -22,17 +23,20 @@ class ParameterTester(SingleWellCoverageAnalyzer):
         self.refreshButton.released.connect(self.refreshAll)
         self.binaryCheckBox = QCheckBox("ShowBinary: ", self.window)
         self.binaryCheckBox.stateChanged.connect(self.binaryCheckChanged)
+        self.dilateCheckBox = QCheckBox("Dilate: ", self.window)
+        self.dilateCheckBox.setCheckState(2)
 
-        self.radiusSpinBox.setValue(2)
+        self.diameterSpinBox.setValue(5)
+        self.componentSizeSpinBox.setMaximum(1000)
         self.componentSizeSpinBox.setValue(100)
         self.thresholdSpinBox.setValue(0.01)
 
         l = QGridLayout()
         l.addWidget(self.canvas, 0, 0, 8, 8)
-        label = QLabel("Kernel Radius:", self.window)
+        label = QLabel("Kernel Diameter:", self.window)
         label.setAlignment(QtCore.Qt.AlignRight)
         l.addWidget(label, 8, 0)
-        l.addWidget(self.radiusSpinBox, 8, 1)
+        l.addWidget(self.diameterSpinBox, 8, 1)
         label = QLabel("Variance Threshold:", self.window)
         label.setAlignment(QtCore.Qt.AlignRight)
         l.addWidget(label, 8, 2)
@@ -43,8 +47,9 @@ class ParameterTester(SingleWellCoverageAnalyzer):
         l.addWidget(self.componentSizeSpinBox, 8, 5)
         l.addWidget(self.varShowButton, 8, 6)
         l.addWidget(self.refreshButton, 8, 7)
-        l.addWidget(self.binaryCheckBox, 8, 8)
-        l.addWidget(NavigationToolbar2QT(self.canvas, self.window), 9, 0, 1, 8)
+        l.addWidget(self.binaryCheckBox, 9, 6)
+        l.addWidget(self.dilateCheckBox, 9, 7)
+        l.addWidget(NavigationToolbar2QT(self.canvas, self.window), 9, 0, 1, 6)
         self.window.setLayout(l)
 
     def run(self, mask: np.ndarray):
@@ -97,14 +102,19 @@ class ParameterTester(SingleWellCoverageAnalyzer):
         self.canvas.draw_idle()
 
     def refreshVariance(self):
-        varRadius = self.radiusSpinBox.value()
-        self.var = self.calculateLocalVariance(self.stdImg, varRadius)
+        varDiameter = self.diameterSpinBox.value()
+        self.var = self.calculateLocalVariance(self.stdImg, varDiameter)
 
     def refreshBinary(self):
         thresh = self.thresholdSpinBox.value()
         compSize = self.componentSizeSpinBox.value()
+        dilate = self.dilateCheckBox.checkState()
+        diam = self.diameterSpinBox.value()
         self.binary = self.var <= thresh
         self.binary = self.removeSmallComponents(self.binary, compSize)
+        if dilate:
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (diam, diam))
+            self.binary = cv2.dilate(self.binary.astype(np.uint8), kernel)
 
     def refreshPlot(self):
         self.varAxIm.set_data(self.var)
@@ -121,16 +131,11 @@ if __name__ == '__main__':
     import sys
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    # an = ParameterTester(outPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1\Ana',
-    #                                 wellPath= r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1',
-    #                                 ffcPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr\BottomLeft_1',
-    #                                 darkCount=624,
-    #                                 rotate90=2)
-    an = ParameterTester(outPath=r'H:\HT29 coverage for Nick (8-20-19)\Low conf\BottomLeft_1\Ana',
-                                    wellPath= r'H:\HT29 coverage for Nick (8-20-19)\Low conf\BottomLeft_1',
-                                    ffcPath=r'H:\HT29 coverage for Nick (8-20-19)\Flat field corr\BottomLeft_1',
+    an = ParameterTester(outPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1\Ana',
+                                    wellPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1',
+                                    ffcPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr\BottomLeft_1',
                                     darkCount=624,
-                                    rotate90=1)
+                                    rotate90=2)
     mask = an.selectAnalysisArea()
     an.run(mask)
     sys.exit(app.exec_())
