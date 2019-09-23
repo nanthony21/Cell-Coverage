@@ -116,18 +116,8 @@ class SingleWellCoverageAnalyzer:
     def calculateLocalVariance(img, dist):
         """Creates a map of the spatial variance
         in a neighborhood of radius `dist` pixels in img"""
-        def circularMask(radius):
-            """Create a circular boolean mask with a radius of `dist`."""
-            output_mask = np.ones([radius * 2 + 1, radius * 2 + 1], dtype=np.uint16)  # Initialize output mask
-            # Create distance map
-            output_mask[radius, radius] = 0
-            dist_map = ndimage.distance_transform_edt(output_mask)
-            # Turn distance map into binary mask
-            output_mask[dist_map > radius] = 0
-            output_mask[dist_map <= radius] = 1
-            return output_mask
         img = img.astype(np.float32)
-        mask = circularMask(dist)
+        mask = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2*dist+1, 2*dist+1)).astype(np.float32)
         mask = mask / mask.sum()  # Normalize the mask to 1
         mean = cv.filter2D(img, cv.CV_32F, mask)
         sqrMean = cv.filter2D(img * img, cv.CV_32F, mask)
