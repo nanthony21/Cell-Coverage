@@ -9,7 +9,7 @@ from src.utility import Names
 from src import utility
 import numpy as np
 from enum import Enum
-import src.masksPath
+from src import masksPath
 
 
 class Masks(Enum):
@@ -68,10 +68,10 @@ class SinglePlateAnalyzer:
                 with h5py.File(os.path.join(self.platePath, 'masks', f'{wellFolder}.h5'), 'w') as f:
                     f.create_dataset('mask', dtype=np.bool, data=mask, compression='gzip')
             else:
-                maskPath = os.path.join(src.masksPath, self.maskOption.value, f'{wellFolder}.h5')
+                maskPath = os.path.join(masksPath, self.maskOption.value, f'{wellFolder}.h5')
                 with h5py.File(maskPath, 'r') as f:
                     mask = np.array(f['mask'])
-                print("Loaded saved mask.")
+                print("Mask loaded")
             results[wellFolder] = well.run(mask)
         with open(os.path.join(self.outPath, 'results.csv'), 'w') as f:
             for well, result in results.items():
@@ -83,8 +83,9 @@ if __name__ == '__main__':
     import sys
     app = QApplication(sys.argv)
     plate = SinglePlateAnalyzer(
-                                platePath=r'H:\HT29 coverage (8-20-19)\Low conf',
-                                ffcPath=r'H:\HT29 coverage (8-20-19)\Flat field corr',
+                                platePath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Low conf',
+                                ffcPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr',
                                 darkCount=624,
-                                rotate90=1)
+                                maskOption=Masks.SixWell,
+                                rotate90=2)
     results = plate.run()
