@@ -10,6 +10,7 @@ from src import utility
 import numpy as np
 from enum import Enum
 from src import masksPath
+import json
 
 
 class Masks(Enum):
@@ -50,7 +51,7 @@ class SinglePlateAnalyzer:
             d[subDir] = [utility.getLocationFromFileName(os.path.split(name)[-1]) for name in allFiles if subDir == os.path.split(os.path.split(name)[0])[-1]]
         return d
 
-    def run(self):
+    def run(self, varianceThreshold: float = 0.01, kernelDiameter: int = 5, minimumComponentSize: int = 100):
         results = {}
         for i, wellFolder in enumerate(self.plateStructure.keys()):
             print(wellFolder)
@@ -72,10 +73,15 @@ class SinglePlateAnalyzer:
                 with h5py.File(maskPath, 'r') as f:
                     mask = np.array(f['mask'])
                 print("Mask loaded")
-            results[wellFolder] = well.run(mask)
+            results[wellFolder] = well.run(mask,
+                                           varianceThreshold=varianceThreshold,
+                                           kernelDiameter=kernelDiameter,
+                                           minimumComponentSize=minimumComponentSize)
         with open(os.path.join(self.outPath, 'results.csv'), 'w') as f:
             for well, result in results.items():
                 f.write(f"{well}, {result['coverage']}\n")
+        with open(os.path.join(self.outPath, 'settings.json'), 'w') as f:
+            json.dump(f, {'kernelDiameter': kernelDiameter, 'minimumComponentSize': minimumComponentSize, 'varianceThreshold': varianceThreshold})
         return results
 
 if __name__ == '__main__':

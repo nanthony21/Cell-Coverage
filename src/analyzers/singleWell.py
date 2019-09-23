@@ -4,6 +4,8 @@ import shutil
 from enum import IntFlag
 from glob import glob
 from os import path as osp
+from typing import Tuple
+
 import cv2 as cv
 import imageio
 import numpy as np
@@ -27,7 +29,7 @@ class OutputOptions(IntFlag):
 
 class SingleWellCoverageAnalyzer:
     def __init__(self, outPath: str, wellPath: str, ffcPath: str, darkCount: int,
-                 rotate90: int = 0, outputOption: OutputOptions = OutputOptions.Full, varianceThreshold: float = 0.01):
+                 rotate90: int = 0, outputOption: OutputOptions = OutputOptions.Full):
         """root: Root folder for experiment."""
         self.wellPath = wellPath
         self.ffcPath = ffcPath
@@ -35,7 +37,6 @@ class SingleWellCoverageAnalyzer:
         self.darkCount = darkCount
         self.rot = rotate90
         self.outputOption = outputOption
-        self.varianceThreshold = varianceThreshold
 
         self.img = self._loadImage(self.wellPath)
         self.ffc = self._loadImage(self.ffcPath)
@@ -60,10 +61,9 @@ class SingleWellCoverageAnalyzer:
         ffcMean, ffcStd = self.ffc[mask].mean(), self.ffc[mask].std()
         stdImg = self.img * ffcMean / self.ffc
         stdImg = (stdImg - ffcMean) / ffcStd #An image that has been standardized by the flatfield correction.
-        print(f"{np.percentile(stdImg[mask], 16)}, {np.percentile(stdImg[mask], 84)}")
         return stdImg
 
-    def run(self, mask: np.ndarray) -> dict:
+    def run(self, mask: np.ndarray, varianceThreshold: float = 0.01, kernelDiameter: int = 5, minimumComponentSize: int = 100) -> dict:
         if osp.exists(self.outPath):
             button = QMessageBox.question(None, 'Hey', f'Analysis folder already exists. Delete and continue?\n\n {self.outPath}')
             if button == QMessageBox.Yes:
@@ -72,11 +72,11 @@ class SingleWellCoverageAnalyzer:
                 return
         os.mkdir(self.outPath)
         stdImg = self._getStandardizedImg(mask)
-        var = self.calculateLocalVariance(stdImg, 2)
-        varMask = var <= self.varianceThreshold #The mask is true where variance is below threshold. (background regions.)
-        morph_img = self.removeSmallComponents(varMask, 100)  # Remove small features
-        kernel_dil = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))  # Set kernels for morphological operations and CC
-        morph_img = cv.dilate(morph_img.astype(np.uint8), kernel_dil) #This dilation helps the mask actually line up with the cells better.
+        var = self.calculateLocalVariance(stdImg, kernelDiameter)
+        varMask = var <= varianceThreshold #The mask is true where variance is below threshold. (background regions.)
+        morph_img = self.removeSmallComponents(varMask, minimumComponentSize)  # Remove small features
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (kernelDiameter, kernelDiameter))
+        morph_img = cv.dilate(morph_img.astype(np.uint8), kernel) #This dilation helps the mask actually line up with the cells better.
         morph_img[~mask] = 2 #We now have a trinary array. (cell, background, ignored)
         # Write images to file
         with open(os.path.join(self.outPath, 'readme.txt'), 'w') as txtfile:
@@ -105,7 +105,10 @@ class SingleWellCoverageAnalyzer:
         # Output and save coverage numbers
         cellArea = float(np.sum(morph_img == 0))
         backgroundArea = float(np.sum(morph_img == 1))
-        results = {'coverage': 100 * cellArea / (cellArea + backgroundArea)}
+        results = {'coverage': 100 * cellArea / (cellArea + backgroundArea),
+                   'varianceThreshold': varianceThreshold,
+                   'kernelDiameter': kernelDiameter,
+                   'minimumComponentSize': minimumComponentSize}
         if self.outputOption & OutputOptions.ResultsJson:
             with open(os.path.join(self.outPath, 'output.json'), 'w') as file:
                 json.dump(results, file, indent=4)
@@ -113,11 +116,11 @@ class SingleWellCoverageAnalyzer:
         return results
 
     @staticmethod
-    def calculateLocalVariance(img, dist):
+    def calculateLocalVariance(img, dist) -> np.ndarray:
         """Creates a map of the spatial variance
-        in a neighborhood of radius `dist` pixels in img"""
+        in a neighborhood of diameter "dist" pixels in img"""
         img = img.astype(np.float32)
-        mask = cv.getStructuringElement(cv.MORPH_ELLIPSE, (2*dist+1, 2*dist+1)).astype(np.float32)
+        mask = cv.getStructuringElement(cv.MORPH_ELLIPSE, (dist, dist)).astype(np.float32)
         mask = mask / mask.sum()  # Normalize the mask to 1
         mean = cv.filter2D(img, cv.CV_32F, mask)
         sqrMean = cv.filter2D(img * img, cv.CV_32F, mask)
