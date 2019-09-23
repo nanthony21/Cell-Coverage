@@ -152,6 +152,7 @@ class SingleWellCoverageAnalyzer:
             r = Roi.fromVerts('doesntmatter', 0, verts=np.array(verts), dataShape=dsimg.shape)
             Mask = r.mask
             mask[0] = np.array(Image.fromarray(Mask).resize((self.img.shape[1], self.img.shape[0]))) #Upsample back to full resolution
+            a.setActive(True)  # Reenable the selector for the next run.
         fig, ax = plt.subplots()
         fig.suptitle("Select the analysis region. Close to proceed.")
         im = ax.imshow(dsimg, clim=[np.percentile(dsimg, 1), np.percentile(dsimg, 99)], cmap='gray')
@@ -167,12 +168,11 @@ if __name__ == '__main__':
     import sys
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    with ImageJStitcher(r'C:\Users\backman05\Documents\Fiji.app\ImageJ-win64.exe') as stitcher:
-        an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage (8-20-19)\Low conf\BottomLeft_1\Ana4',
-                                        wellPath=r'H:\HT29 coverage (8-20-19)\Low conf\BottomLeft_1',
-                                        ffcPath=r'H:\HT29 coverage (8-20-19)\Flat field corr\BottomLeft_1',
-                                        darkCount=624,
-                                        rotate90=1,
-                                        outputOption=OutputOptions.Outline)
-        mask = an.selectAnalysisArea()
-        an.run(mask)
+    an = SingleWellCoverageAnalyzer(outPath=r'H:\HT29 coverage for Nick (8-20-19)\Low conf\BottomLeft_1\Ana2',
+                                    wellPath= r'H:\HT29 coverage for Nick (8-20-19)\Low conf\BottomLeft_1',
+                                    ffcPath=r'H:\HT29 coverage for Nick (8-20-19)\Flat field corr\BottomLeft_1',
+                                    darkCount=624,
+                                    rotate90=1,
+                                    outputOption=OutputOptions.Outline)
+    mask = an.selectAnalysisArea()
+    an.run(mask)
