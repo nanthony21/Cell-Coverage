@@ -30,7 +30,7 @@ class SinglePlateAnalyzer:
         ffcStructure = self.detectPlateFolderStructure(ffcPath)
         assert plateStructure.keys() == ffcStructure.keys()
         for k, v in plateStructure.items():
-            assert ffcStructure[k] == v, f"For Well {k}: plate has locations: {v}, but flatField has locations: {ffcStructure[k]}"
+            assert ffcStructure[k] == v, f"For Well {k}: plate has locations:\n {v}, \n\n\nbut flatField has locations: \n{ffcStructure[k]}"
         self.plateStructure = plateStructure
         if os.path.exists(self.outPath):
             button = QMessageBox.question(None, 'Hey',

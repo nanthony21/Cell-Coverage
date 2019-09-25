@@ -1,2 +1,2 @@
-from singlePlate import SinglePlateAnalyzer
-from singleWell import OutputOptions, SingleWellCoverageAnalyzer
+from .singlePlate import SinglePlateAnalyzer, Masks
+from .singleWell import OutputOptions, SingleWellCoverageAnalyzer
