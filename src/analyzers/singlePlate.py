@@ -14,7 +14,7 @@ import json
 
 
 class Masks(Enum):
-    """Used to select which mask files to use"""
+    """Used to select which mask files to use. The Value of each item indicates the folder name that the mask files are saved under."""
     SixWell = '6WellPlate'
     Diy = None #Draw the masks yourself.
 
