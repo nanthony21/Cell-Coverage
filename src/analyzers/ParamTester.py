@@ -3,7 +3,8 @@ from PyQt5.QtWidgets import QWidget, QSpinBox, QDoubleSpinBox, QGridLayout, QLab
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-
+import sys
+sys.path.append(r'C:\Users\N2-LiveCell\Documents\Bitbucket\cell-coverage')
 from src.analyzers.singleWell import SingleWellCoverageAnalyzer, OutputOptions
 import numpy as np
 import cv2
@@ -131,11 +132,11 @@ if __name__ == '__main__':
     import sys
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    an = ParameterTester(outPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1\Ana',
-                                    wellPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Low conf\BottomLeft_1',
-                                    ffcPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr\BottomLeft_1',
+    an = ParameterTester(outPath=r'G:\HCT116 coverage cele synergy (10-2-19)\1\Ana',
+                                    wellPath=r'G:\HCT116 coverage cele synergy (10-2-19)\1\BottomLeft_1',
+                                    ffcPath=r'G:\HCT116 coverage cele synergy (10-2-19)\FFC\BottomLeft_1',
                                     darkCount=624,
-                                    rotate90=2)
+                                    rotate90=1)
     mask = an.selectAnalysisArea()
     an.run(mask)
     sys.exit(app.exec_())

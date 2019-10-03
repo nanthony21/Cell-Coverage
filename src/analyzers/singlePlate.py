@@ -19,13 +19,14 @@ class Masks(Enum):
     Diy = None #Draw the masks yourself.
 
 class SinglePlateAnalyzer:
-    def __init__(self, platePath: str, ffcPath: str, darkCount: int, maskOption: Masks, rotate90: int = 0, analysisFolderName = "Analysis"):
+    def __init__(self, platePath: str, ffcPath: str, darkCount: int, maskOption: Masks, rotate90: int = 0, analysisFolderName = "Analysis", outputOption = OutputOptions.Outline | OutputOptions.Binary):
         self.darkCount = darkCount
         self.rot = rotate90
         self.maskOption = maskOption
         self.outPath = os.path.join(platePath, analysisFolderName)
         self.platePath = platePath
         self.ffcPath = ffcPath
+        self.outputOption = outputOption
         plateStructure = self.detectPlateFolderStructure(platePath)
         ffcStructure = self.detectPlateFolderStructure(ffcPath)
         assert plateStructure.keys() == ffcStructure.keys()
@@ -60,7 +61,7 @@ class SinglePlateAnalyzer:
                                               ffcPath=os.path.join(self.ffcPath, wellFolder),
                                               darkCount=self.darkCount,
                                               rotate90=self.rot,
-                                              outputOption=OutputOptions.Outline | OutputOptions.Binary)
+                                              outputOption=self.outputOption)
             if self.maskOption == Masks.Diy:
                 print("Draw the analysis area")
                 mask = well.selectAnalysisArea()
