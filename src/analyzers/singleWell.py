@@ -26,6 +26,7 @@ class OutputOptions(IntFlag):
     Corrected = 0x04
     ResultsJson = 0x08
     Raw = 0x10
+    Variance = 0x20
     Nothing = 0x00
 
 class SingleWellCoverageAnalyzer:
@@ -81,6 +82,7 @@ class SingleWellCoverageAnalyzer:
         morph_img = cv.dilate(morph_img.astype(np.uint8), kernel) #This dilation helps the mask actually line up with the cells better.
         morph_img[~mask] = 2 #We now have a trinary array. (cell, background, ignored)
         # Write images to file
+        print("Saving outputs")
         with open(os.path.join(self.outPath, 'readme.txt'), 'w') as txtfile:
             if self.outputOption & OutputOptions.Binary:
                 imageio.imwrite(osp.join(self.outPath, f'{Names.binary}.tif'), morph_img*127) #We multiply by 127 to use the whole 255 color range.
@@ -92,12 +94,18 @@ class SingleWellCoverageAnalyzer:
                 imageio.imwrite(osp.join(self.outPath, f'{Names.raw}.tif'), self.img)
                 imageio.imwrite(osp.join(self.outPath, f'{Names.raw}_FFC.tif'), self.ffc)
                 txtfile.write("Raw: The stitched image after subtracting dark counts. No other processing has been done.")
+            if self.outputOption & OutputOptions.Variance:
+                imageio.imwrite(osp.join(self.outPath, f'Variance.tif'), var.astype(np.float32))
+                txtfile.write("Variance: The local variance within a radius specified in `run`.")
             if self.outputOption & OutputOptions.Outline:
                 # Add segmentation outline to corrected image
-                outlinedImg = np.zeros((stdImg.shape[0], stdImg.shape[1], 3))
-                outlinedImg[:, :, :] = stdImg[:, :, None] #Extend to 3rd dimension to make it RGB.
-                Min, Max = np.percentile(outlinedImg, 1), np.percentile(outlinedImg, 99)
-                outlinedImg = ((outlinedImg - Min) / (Max - Min) * 255).astype(np.uint8)  # scale data to 8bit.
+                outlinedImg = np.zeros((stdImg.shape[0], stdImg.shape[1], 3), dtype=np.uint8)
+                #Scale the image before rgb-ing it
+                Min, Max = np.percentile(stdImg[mask], 1), np.percentile(stdImg[mask], 99)
+                scldImg = ((stdImg - Min) / (Max - Min) * 255).astype(np.uint8)  # scale data to 8bit.
+                scldImg[stdImg <= Min] = 0 #Get rid of possible overflowed pixels
+                scldImg[stdImg >= Max] = 255
+                outlinedImg[:, :, :] = scldImg[:, :, None] #Extend to 3rd dimension to make it RGB.
                 outline = cv.dilate(cv.Canny(morph_img.astype(np.uint8), 0, 1), cv.getStructuringElement(cv.MORPH_ELLIPSE,(2, 2)))  # binary outline for overlay
                 rgboutline = np.zeros((*outline.shape, 3), dtype=np.bool)
                 rgboutline[:, :, 0] = outline
