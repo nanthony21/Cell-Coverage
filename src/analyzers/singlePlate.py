@@ -19,7 +19,7 @@ class Masks(Enum):
     Diy = None #Draw the masks yourself.
 
 class SinglePlateAnalyzer:
-    def __init__(self, platePath: str, ffcPath: str, darkCount: int, maskOption: Masks, rotate90: int = 0, analysisFolderName = "Analysis", outputOption = OutputOptions.Outline | OutputOptions.Binary):
+    def __init__(self, platePath: str, ffcPath: str, darkCount: int, maskOption: Masks, rotate90: int = 0, analysisFolderName="Analysis", outputOption=OutputOptions.Outline | OutputOptions.Binary):
         self.darkCount = darkCount
         self.rot = rotate90
         self.maskOption = maskOption
@@ -56,6 +56,7 @@ class SinglePlateAnalyzer:
         results = {}
         for i, wellFolder in enumerate(self.plateStructure.keys()):
             print(wellFolder)
+            print("Loading raw images.")
             well = SingleWellCoverageAnalyzer(outPath=os.path.join(self.outPath, wellFolder),
                                               wellPath=os.path.join(self.platePath, wellFolder),
                                               ffcPath=os.path.join(self.ffcPath, wellFolder),
@@ -70,10 +71,11 @@ class SinglePlateAnalyzer:
                 with h5py.File(os.path.join(self.platePath, 'masks', f'{wellFolder}.h5'), 'w') as f:
                     f.create_dataset('mask', dtype=np.bool, data=mask, compression='gzip')
             else:
+                print("Loading mask")
                 maskPath = os.path.join(masksPath, self.maskOption.value, f'{wellFolder}.h5')
                 with h5py.File(maskPath, 'r') as f:
                     mask = np.array(f['mask'])
-                print("Mask loaded")
+                print("Done")
             results[wellFolder] = well.run(mask,
                                            varianceThreshold=varianceThreshold,
                                            kernelDiameter=kernelDiameter,
@@ -90,11 +92,11 @@ if __name__ == '__main__':
     import sys
     app = QApplication(sys.argv)
     plate = SinglePlateAnalyzer(
-                                platePath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Low conf',
-                                ffcPath=r'H:\HT29 coverage for Nick (8-20-19)\HT29 coverage48h (8-20-19)\Flat field corr',
+                                platePath=r'H:\HCT116 coverage cele synergy (10-2-19)\1',
+                                ffcPath=r'H:\HCT116 coverage cele synergy (10-2-19)\FFC',
                                 darkCount=624,
                                 maskOption=Masks.SixWell,
-                                rotate90=2,
-                                analysisFolderName="Analysis2",
-                                )
-    results = plate.run(kernelDiameter=3, varianceThreshold=0.06, minimumComponentSize=20)
+                                rotate90=1,
+                                analysisFolderName="Analysistest",
+                                outputOption=OutputOptions.Full)
+    results = plate.run(kernelDiameter=5, varianceThreshold=0.01, minimumComponentSize=20)

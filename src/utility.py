@@ -33,5 +33,6 @@ class Names:
     binary = 'Binary'
     corrected = 'Corrected'
     analyzed = 'analyzed'
+    raw = 'Raw'
 
 

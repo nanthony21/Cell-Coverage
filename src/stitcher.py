@@ -10,7 +10,7 @@ class Stitcher:
     def stitch(self):
         s = 1-self.overlap
         imShape = self.images[0,0].shape
-        output = np.zeros((int(imShape[0]*(self.images.shape[0]-1)*s+imShape[0]+1), int(imShape[1]*(self.images.shape[1]-1)*s+1+imShape[1]))) #We add one extra pixel here in case of rounding errors with s.
+        output = np.zeros((int(imShape[0]*(self.images.shape[0]-1)*s+imShape[0]+1), int(imShape[1]*(self.images.shape[1]-1)*s+1+imShape[1])), dtype=self.images[0,0].dtype) #We add one extra pixel here in case of rounding errors with s.
         for i in range(self.images.shape[0]):
             for j in range(self.images.shape[1]):
                 img = self.images[i, j]

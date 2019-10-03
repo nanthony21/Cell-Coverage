@@ -25,6 +25,7 @@ class OutputOptions(IntFlag):
     Binary = 0x02
     Corrected = 0x04
     ResultsJson = 0x08
+    Raw = 0x10
     Nothing = 0x00
 
 class SingleWellCoverageAnalyzer:
@@ -42,6 +43,7 @@ class SingleWellCoverageAnalyzer:
         self.ffc = self._loadImage(self.ffcPath)
 
     def _loadImage(self, path: str):
+        """Load micromanager images from a directory, stitch them and subtract the darkcounts. the images are assumed to be uint16"""
         assert os.path.exists(path)
         fileNames = [os.path.split(impath)[-1] for impath in glob(osp.join(path, '*' + Names.prefix + '*'))]
         assert len(fileNames) > 0
@@ -49,7 +51,7 @@ class SingleWellCoverageAnalyzer:
         tileSize = tuple(max(i) + 1 for i in zip(*locations))
         imgs = np.zeros((tileSize), dtype=object) # a 2d object array containing images by position.
         for loc in locations:
-            im = utility.loadImage(loc, path)[0]
+            im = utility.loadImage(loc, path)[0].astype(np.uint16)
             im = np.rot90(im, self.rot) #rotate each individual image if needed.
             imgs[loc[0], loc[1]] = im
         s = Stitcher(imgs, .1, invertY=True)
@@ -86,6 +88,10 @@ class SingleWellCoverageAnalyzer:
             if self.outputOption & OutputOptions.Corrected:
                 imageio.imwrite(osp.join(self.outPath, f'{Names.corrected}.tif'), stdImg.astype(np.float32))
                 txtfile.write("Corrected: Recommend opening this in ImageJ. This is the raw data after being normalized by the flat field correction.\n\n")
+            if self.outputOption & OutputOptions.Raw:
+                imageio.imwrite(osp.join(self.outPath, f'{Names.raw}.tif'), self.img)
+                imageio.imwrite(osp.join(self.outPath, f'{Names.raw}_FFC.tif'), self.ffc)
+                txtfile.write("Raw: The stitched image after subtracting dark counts. No other processing has been done.")
             if self.outputOption & OutputOptions.Outline:
                 # Add segmentation outline to corrected image
                 outlinedImg = np.zeros((stdImg.shape[0], stdImg.shape[1], 3))
