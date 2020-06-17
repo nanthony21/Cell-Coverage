@@ -25,6 +25,7 @@ class OutputOptions(IntFlag):
     Variance = 0x20
     Nothing = 0x00
 
+
 class SingleWellCoverageAnalyzer:
     def __init__(self, outPath: str, wellPath: str, ffcPath: str, darkCount: int,
                  rotate90: int = 0, outputOption: OutputOptions = OutputOptions.Full):

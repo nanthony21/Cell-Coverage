@@ -17,9 +17,10 @@ def loadImage(location: Tuple[int, int], path: str):
         raise OSError(f"The image, {fullPath}, was not found")
     return img, fileName
 
+
 def getLocationFromFileName(fileName: str) -> Tuple[int, int]:
-    fileName = fileName.split(Names.prefix)[1] #Remove first part of name
-    fileName = fileName.split('.')[0] #remove the extension
+    fileName = fileName.split(Names.prefix)[1]  # Remove first part of name
+    fileName = fileName.split('.')[0]  # remove the extension
     location = tuple(int(i) for i in fileName.split('_'))
     assert len(location) == 2
     return location

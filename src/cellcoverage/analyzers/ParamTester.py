@@ -3,7 +3,6 @@ from PyQt5.QtWidgets import QWidget, QSpinBox, QDoubleSpinBox, QGridLayout, QLab
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-
 from cellcoverage.analyzers import SingleWellCoverageAnalyzer, OutputOptions
 import numpy as np
 import cv2
@@ -129,7 +128,7 @@ class ParameterTester(SingleWellCoverageAnalyzer):
         self.refreshPlot()
 
 if __name__ == '__main__':
-
+    import sys
     from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
     an = ParameterTester(outPath=r'G:\HCT116 coverage cele synergy (10-2-19)\1\Ana',

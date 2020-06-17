@@ -1,13 +1,14 @@
 import numpy as np
 
 class Stitcher:
+    """This class helps to stitch together a grid of images into a single large image."""
     def __init__(self, imageGrig: np.ndarray, overlap: float, invertX: bool = False, invertY: bool = False):
         self.images = imageGrig
         self.overlap = overlap
         self.invX = invertX
         self.invY = invertY
 
-    def stitch(self):
+    def stitch(self) -> np.ndarray:
         s = 1-self.overlap
         imShape = self.images[0,0].shape
         output = np.zeros((int(imShape[0]*(self.images.shape[0]-1)*s+imShape[0]+1), int(imShape[1]*(self.images.shape[1]-1)*s+1+imShape[1])), dtype=self.images[0,0].dtype) #We add one extra pixel here in case of rounding errors with s.
@@ -24,7 +25,7 @@ class Stitcher:
         return output
 
 if __name__ == '__main__':
-    from src.utility import loadImage, getLocationFromFileName
+    from cellcoverage.utility import loadImage, getLocationFromFileName
     from glob import glob
     import os
     import matplotlib.pyplot as plt
