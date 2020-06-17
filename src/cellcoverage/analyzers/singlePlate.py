@@ -1,15 +1,13 @@
 
 import h5py
 from PyQt5.QtWidgets import QMessageBox
-from src.analyzers.singleWell import SingleWellCoverageAnalyzer, OutputOptions
+from cellcoverage.analyzers.singleWell import SingleWellCoverageAnalyzer, OutputOptions
 import os
 import shutil
 from glob import glob
-from src.utility import Names
-from src import utility
+from cellcoverage import utility, masksPath
 import numpy as np
 from enum import Enum
-from src import masksPath
 import json
 
 

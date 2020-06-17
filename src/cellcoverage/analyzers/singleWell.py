@@ -4,19 +4,15 @@ import shutil
 from enum import IntFlag
 from glob import glob
 from os import path as osp
-from typing import Tuple
-
 import cv2 as cv
 import imageio
 import numpy as np
 from PyQt5.QtWidgets import QMessageBox
 from matplotlib import pyplot as plt
 from pwspy.dataTypes import Roi
-from scipy import ndimage
-from src.stitcher import Stitcher
-from src.utility import Names
-from src import utility
-from pwspy.utility.matplotlibwidg import AdjustableSelector, MyEllipse
+from cellcoverage.stitcher import Stitcher
+from cellcoverage import utility
+from pwspy.utility.matplotlibWidgets import AdjustableSelector, EllipseSelector
 from PIL import Image
 
 class OutputOptions(IntFlag):
@@ -46,7 +42,7 @@ class SingleWellCoverageAnalyzer:
     def _loadImage(self, path: str):
         """Load micromanager images from a directory, stitch them and subtract the darkcounts. the images are assumed to be uint16"""
         assert os.path.exists(path)
-        fileNames = [os.path.split(impath)[-1] for impath in glob(osp.join(path, '*' + Names.prefix + '*'))]
+        fileNames = [os.path.split(impath)[-1] for impath in glob(osp.join(path, '*' + utility.Names.prefix + '*'))]
         assert len(fileNames) > 0
         locations = [utility.getLocationFromFileName(name) for name in fileNames]
         tileSize = tuple(max(i) + 1 for i in zip(*locations))
@@ -85,14 +81,14 @@ class SingleWellCoverageAnalyzer:
         print("Saving outputs")
         with open(os.path.join(self.outPath, 'readme.txt'), 'w') as txtfile:
             if self.outputOption & OutputOptions.Binary:
-                imageio.imwrite(osp.join(self.outPath, f'{Names.binary}.tif'), morph_img*127) #We multiply by 127 to use the whole 255 color range.
+                imageio.imwrite(osp.join(self.outPath, f'{utility.Names.binary}.tif'), morph_img*127) #We multiply by 127 to use the whole 255 color range.
                 txtfile.write("Binary: Black is cells, gray is background, white was not analyzed.\n\n")
             if self.outputOption & OutputOptions.Corrected:
-                imageio.imwrite(osp.join(self.outPath, f'{Names.corrected}.tif'), stdImg.astype(np.float32))
+                imageio.imwrite(osp.join(self.outPath, f'{utility.Names.corrected}.tif'), stdImg.astype(np.float32))
                 txtfile.write("Corrected: Recommend opening this in ImageJ. This is the raw data after being normalized by the flat field correction.\n\n")
             if self.outputOption & OutputOptions.Raw:
-                imageio.imwrite(osp.join(self.outPath, f'{Names.raw}.tif'), self.img)
-                imageio.imwrite(osp.join(self.outPath, f'{Names.raw}_FFC.tif'), self.ffc)
+                imageio.imwrite(osp.join(self.outPath, f'{utility.Names.raw}.tif'), self.img)
+                imageio.imwrite(osp.join(self.outPath, f'{utility.Names.raw}_FFC.tif'), self.ffc)
                 txtfile.write("Raw: The stitched image after subtracting dark counts. No other processing has been done.")
             if self.outputOption & OutputOptions.Variance:
                 imageio.imwrite(osp.join(self.outPath, f'Variance.tif'), var.astype(np.float32))
@@ -113,7 +109,7 @@ class SingleWellCoverageAnalyzer:
                 background = np.zeros((*outline.shape, 3), dtype=np.bool)
                 background[:, :, 0] = (morph_img == 2)
                 outlinedImg[background] = 0
-                imageio.imwrite(osp.join(self.outPath, f'{Names.outline}.tif'), outlinedImg)
+                imageio.imwrite(osp.join(self.outPath, f'{utility.Names.outline}.tif'), outlinedImg)
                 txtfile.write("Outline: Check that the red outline matches the clusters of cells. Cyan regions were not analyzed.\n\n")
 
         # Output and save coverage numbers
@@ -163,7 +159,7 @@ class SingleWellCoverageAnalyzer:
         fig, ax = plt.subplots()
         fig.suptitle("Select the analysis region. Close to proceed.")
         im = ax.imshow(dsimg, clim=[np.percentile(dsimg, 1), np.percentile(dsimg, 99)], cmap='gray')
-        a = AdjustableSelector(ax, im, MyEllipse, onfinished=finish)
+        a = AdjustableSelector(ax, im, EllipseSelector, onfinished=finish)
         a.setActive(True)
         fig.show()
         while plt.fignum_exists(fig.number):
